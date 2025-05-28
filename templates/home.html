@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF File Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 1.5rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .logout-btn {
+            background: #dc3545;
+            color: white;
+            padding: 0.5rem 1rem;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+        
+        .logout-btn:hover {
+            background: #c82333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .upload-section {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .upload-area {
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            transition: border-color 0.3s;
+        }
+        
+        .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f8f9fa;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        
+        .upload-btn:hover {
+            background: #0056b3;
+        }
+        
+        .search-section {
+            background: white;
+            padding: 1.5rem 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .search-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        .files-section {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .files-header {
+            background: #f8f9fa;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .files-list {
+            padding: 0;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.2s;
+        }
+        
+        .file-item:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        
+        .file-icon {
+            width: 40px;
+            height: 40px;
+            background: #dc3545;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-right: 1rem;
+        }
+        
+        .file-info {
+            flex: 1;
+        }
+        
+        .file-name {
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .file-meta {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn:hover {
+            filter: brightness(0.9);
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #666;
+        }
+        
+        .alert {
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .alert.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📁 PDF File Manager</h1>
+        <div class="user-info">
+            <span>Welcome, {{ user }}</span>
+            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div id="alert" class="alert"></div>
+
+        <!-- Upload Section -->
+        <div class="upload-section">
+            <h2>Upload PDF Files</h2>
+            <div class="upload-area" id="uploadArea">
+                <p>📄 Drag and drop PDF files here or click to browse</p>
+                <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
+                <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    Choose Files
+                </button>
+            </div>
+        </div>
+
+        <!-- Search Section -->
+        <div class="search-section">
+            <h3>Search Files</h3>
+            <input type="text" id="searchInput" class="search-input" placeholder="Type to search your PDF files...">
+        </div>
+
+        <!-- Files Section -->
+        <div class="files-section">
+            <div class="files-header">
+                <h3>Your PDF Files ({{ pdfs|length }})</h3>
+            </div>
+            
+            <div class="files-list" id="filesList">
+                {% if pdfs %}
+                    {% for pdf in pdfs %}
+                    <div class="file-item" data-filename="{{ pdf.filename }}">
+                        <div class="file-icon">PDF</div>
+                        <div class="file-info">
+                            <div class="file-name">{{ pdf.filename }}</div>
+                            <div class="file-meta">
+                                Uploaded: {{ pdf.upload_date }} • Size: {{ pdf.file_size }}
+                            </div>
+                        </div>
+                        <div class="file-actions">
+                            <a href="{{ url_for('preview_file', file_id=pdf.id) }}" 
+                               target="_blank" class="btn btn-primary">
+                               👁️ Preview
+                            </a>
+                            <a href="{{ url_for('download_file', file_id=pdf.id) }}" 
+                               class="btn btn-secondary">
+                               ⬇️ Download
+                            </a>
+                            <button class="btn btn-danger" 
+                                    onclick="deleteFile({{ pdf.id }}, '{{ pdf.filename }}')">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="empty-state">
+                        <h3>No PDF files yet</h3>
+                        <p>Upload your first PDF file to get started!</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const searchInput = document.getElementById('searchInput');
+        const filesList = document.getElementById('filesList');
+        const alert = document.getElementById('alert');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = Array.from(e.dataTransfer.files).filter(file => 
+                file.type === 'application/pdf'
+            );
+            
+            if (files.length > 0) {
+                uploadFiles(files);
+            } else {
+                showAlert('Please drop only PDF files', 'error');
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (files.length > 0) {
+                uploadFiles(files);
+            }
+        });
+
+        // Upload files function
+        function uploadFiles(files) {
+            files.forEach(file => {
+                const formData = new FormData();
+                formData.append('file', file);
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showAlert(`✅ ${file.name} uploaded successfully!`, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showAlert(`❌ Error uploading ${file.name}: ${data.error}`, 'error');
+                    }
+                })
+                .catch(error => {
+                    showAlert(`❌ Error uploading ${file.name}: ${error.message}`, 'error');
+                });
+            });
+
+            // Clear file input
+            fileInput.value = '';
+        }
+
+        // Search functionality
+        let searchTimeout;
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = e.target.value.trim();
+                
+                if (query.length === 0) {
+                    location.reload();
+                    return;
+                }
+
+                fetch(`/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(data => {
+                    displaySearchResults(data.results);
+                })
+                .catch(error => {
+                    showAlert('Search failed: ' + error.message, 'error');
+                });
+            }, 300);
+        });
+
+        // Display search results
+        function displaySearchResults(results) {
+            if (results.length === 0) {
+                filesList.innerHTML = `
+                    <div class="empty-state">
+                        <h3>No files found</h3>
+                        <p>No PDF files match your search criteria.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            filesList.innerHTML = results.map(pdf => `
+                <div class="file-item" data-filename="${pdf.filename}">
+                    <div class="file-icon">PDF</div>
+                    <div class="file-info">
+                        <div class="file-name">${pdf.filename}</div>
+                        <div class="file-meta">
+                            Uploaded: ${pdf.upload_date} • Size: ${pdf.file_size}
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <a href="/preview/${pdf.id}" target="_blank" class="btn btn-primary">
+                           👁️ Preview
+                        </a>
+                        <a href="/download/${pdf.id}" class="btn btn-secondary">
+                           ⬇️ Download
+                        </a>
+                        <button class="btn btn-danger" onclick="deleteFile(${pdf.id}, '${pdf.filename}')">
+                            🗑️ Delete
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Delete file function
+        function deleteFile(fileId, filename) {
+            if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+                return;
+            }
+
+            fetch(`/delete/${fileId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(`✅ ${filename} deleted successfully!`, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAlert(`❌ Error deleting file: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                showAlert(`❌ Error deleting file: ${error.message}`, 'error');
+            });
+        }
+
+        // Show alert function
+        function showAlert(message, type) {
+            alert.className = `alert ${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

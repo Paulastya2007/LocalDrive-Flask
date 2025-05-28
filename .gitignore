@@ -1,0 +1,32 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment files
+.env
+venv/
+env/
+ENV/
+.venv/
+uploads/
+
+# User credentials
+users.json
+
+# Flask-related files
+instance/
+*.db
+*.sqlite3
+
+# VS Code or Visual Studio files
+.vscode/
+*.code-workspace
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS-specific
+.DS_Store
+Thumbs.db
