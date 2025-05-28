@@ -3,304 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PDF File Manager</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: #f5f5f5;
-            line-height: 1.6;
-        }
-        
-        .header {
-            background: white;
-            padding: 1rem 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .header h1 {
-            color: #333;
-            font-size: 1.5rem;
-        }
-        
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        
-        .logout-btn {
-            background: #dc3545;
-            color: white;
-            padding: 0.5rem 1rem;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 0.9rem;
-        }
-        
-        .logout-btn:hover {
-            background: #c82333;
-        }
-        
-        .container {
-            max-width: 1200px;
-            margin: 2rem auto;
-            padding: 0 2rem;
-        }
-        
-        .upload-section {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .upload-area {
-            border: 2px dashed #ddd;
-            border-radius: 8px;
-            padding: 2rem;
-            text-align: center;
-            transition: border-color 0.3s;
-        }
-        
-        .upload-area.dragover {
-            border-color: #007bff;
-            background-color: #f8f9fa;
-        }
-        
-        .file-input {
-            display: none;
-        }
-        
-        .upload-btn {
-            background: #007bff;
-            color: white;
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        
-        .upload-btn:hover {
-            background: #0056b3;
-        }
-        
-        .search-section {
-            background: white;
-            padding: 1.5rem 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .search-input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 1rem;
-        }
-        
-        .files-section {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
-        
-        .files-header {
-            background: #f8f9fa;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #e9ecef;
-        }
-        
-        .files-list {
-            padding: 0;
-        }
-        
-        .file-item {
-            display: flex;
-            align-items: center;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #e9ecef;
-            transition: background-color 0.2s;
-        }
-        
-        .file-item:hover {
-            background-color: #f8f9fa;
-        }
-        
-        .file-item:last-child {
-            border-bottom: none;
-        }
-        
-        .file-icon {
-            width: 40px;
-            height: 40px;
-            background: #dc3545;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            font-weight: bold;
-            margin-right: 1rem;
-        }
-        
-        .file-info {
-            flex: 1;
-        }
-        
-        .file-name {
-            font-weight: 500;
-            color: #333;
-            margin-bottom: 0.25rem;
-        }
-        
-        .file-meta {
-            font-size: 0.9rem;
-            color: #666;
-        }
-        
-        .file-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            text-decoration: none;
-            font-size: 0.9rem;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-        
-        .btn-primary {
-            background: #007bff;
-            color: white;
-        }
-        
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-        
-        .btn-danger {
-            background: #dc3545;
-            color: white;
-        }
-        
-        .btn:hover {
-            filter: brightness(0.9);
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 3rem 2rem;
-            color: #666;
-        }
-        
-        .alert {
-            padding: 1rem;
-            margin: 1rem 0;
-            border-radius: 4px;
-            display: none;
-        }
-        
-        .alert.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-        
-        .alert.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-    </style>
+    <title>Drive Clone - PDF Manager</title>
+     <link rel="stylesheet" href="{{ url_for('static', filename='css/file.css') }}">
+    
 </head>
 <body>
-    <div class="header">
-        <h1>📁 PDF File Manager</h1>
-        <div class="user-info">
-            <span>Welcome, {{ user }}</span>
-            <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    <div class="drive-header">
+        <div class="drive-title">
+            📁 Drive Clone
         </div>
+        <a href="{{ url_for('logout') }}" class="logout-btn">🚪 Logout</a>
     </div>
 
-    <div class="container">
+    <div class="main-container">
         <div id="alert" class="alert"></div>
 
-        <!-- Upload Section -->
-        <div class="upload-section">
-            <h2>Upload PDF Files</h2>
-            <div class="upload-area" id="uploadArea">
-                <p>📄 Drag and drop PDF files here or click to browse</p>
-                <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
-                <button type="button" class="upload-btn" onclick="document.getElementById('fileInput').click()">
-                    Choose Files
-                </button>
+        <div class="toolbar">
+            <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                ⬆️ Upload File
+            </button>
+            
+            <div class="search-container">
+                <div class="search-icon">🔍</div>
+                <input type="text" id="searchInput" class="search-input" placeholder="Search files...">
             </div>
         </div>
 
-        <!-- Search Section -->
-        <div class="search-section">
-            <h3>Search Files</h3>
-            <input type="text" id="searchInput" class="search-input" placeholder="Type to search your PDF files...">
+        <!-- Hidden upload area for drag & drop -->
+        <div class="upload-area" id="uploadArea" style="display: none;">
+            <div style="font-size: 48px; margin-bottom: 16px;">📄</div>
+            <div style="font-size: 18px; color: #1a73e8; font-weight: 500;">Drop PDF files here to upload</div>
         </div>
 
-        <!-- Files Section -->
-        <div class="files-section">
+        <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
+
+        <div class="section-header">My Drive</div>
+
+        <div class="files-container">
             <div class="files-header">
-                <h3>Your PDF Files ({{ pdfs|length }})</h3>
+                <div>NAME</div>
+                <div>TYPE</div>
+                <div>SIZE</div>
+                <div>DATE</div>
+                <div>ACTIONS</div>
             </div>
             
-            <div class="files-list" id="filesList">
+            <div id="filesList">
                 {% if pdfs %}
                     {% for pdf in pdfs %}
-                    <div class="file-item" data-filename="{{ pdf.filename }}">
-                        <div class="file-icon">PDF</div>
-                        <div class="file-info">
-                            <div class="file-name">{{ pdf.filename }}</div>
-                            <div class="file-meta">
-                                Uploaded: {{ pdf.upload_date }} • Size: {{ pdf.file_size }}
-                            </div>
+                    <div class="file-row" data-filename="{{ pdf.filename }}">
+                        <div class="file-name">
+                            <div class="file-icon">📄</div>
+                            <span>{{ pdf.filename }}</span>
                         </div>
+                        <div class="file-type">application/pdf</div>
+                        <div class="file-size">{{ pdf.file_size }}</div>
+                        <div class="file-date">{{ pdf.upload_date.split()[0] }}</div>
                         <div class="file-actions">
-                            <a href="{{ url_for('preview_file', file_id=pdf.id) }}" 
-                               target="_blank" class="btn btn-primary">
-                               👁️ Preview
-                            </a>
-                            <a href="{{ url_for('download_file', file_id=pdf.id) }}" 
-                               class="btn btn-secondary">
-                               ⬇️ Download
-                            </a>
-                            <button class="btn btn-danger" 
-                                    onclick="deleteFile({{ pdf.id }}, '{{ pdf.filename }}')">
-                                🗑️ Delete
+                            <button class="action-btn" title="Download" onclick="downloadFile('{{ pdf.id }}')">
+                                ⬇️
+                            </button>
+                            <button class="action-btn" title="Share" onclick="shareFile('{{ pdf.id }}')">
+                                🔗
+                            </button>
+                            <button class="action-btn danger" title="Delete" onclick="deleteFile('{{ pdf.id }}', '{{ pdf.filename }}')">
+                                🗑️
+                            </button>
+                            <button class="action-btn" title="Preview" onclick="previewFile('{{ pdf.id }}')">
+                                👁️
                             </button>
                         </div>
                     </div>
                     {% endfor %}
                 {% else %}
                     <div class="empty-state">
-                        <h3>No PDF files yet</h3>
-                        <p>Upload your first PDF file to get started!</p>
+                        <div class="empty-icon">📁</div>
+                        <h3>No files in Drive</h3>
+                        <p>Upload your first PDF file to get started</p>
                     </div>
                 {% endif %}
             </div>
@@ -308,25 +87,87 @@
     </div>
 
     <script>
-        // File upload handling
+        // Global variables
         const fileInput = document.getElementById('fileInput');
         const uploadArea = document.getElementById('uploadArea');
         const searchInput = document.getElementById('searchInput');
         const filesList = document.getElementById('filesList');
         const alert = document.getElementById('alert');
+        let dragCounter = 0;
+        let searchTimeout;
+        let allFiles = []; // Store all files for client-side search fallback
 
-        // Drag and drop functionality
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.classList.add('dragover');
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
         });
 
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.classList.remove('dragover');
-        });
+        function initializeApp() {
+            // Store initial file data for search functionality
+            storeFileData();
+            
+            // Setup event listeners
+            setupDragAndDrop();
+            setupFileInput();
+            setupSearch();
+            
+            console.log('Drive Clone initialized successfully');
+        }
 
-        uploadArea.addEventListener('drop', (e) => {
+        // Store file data from DOM for search functionality
+        function storeFileData() {
+            const fileRows = document.querySelectorAll('.file-row');
+            allFiles = Array.from(fileRows).map(row => {
+                const filename = row.querySelector('.file-name span').textContent;
+                const type = row.querySelector('.file-type').textContent;
+                const size = row.querySelector('.file-size').textContent;
+                const date = row.querySelector('.file-date').textContent;
+                
+                return {
+                    element: row,
+                    filename: filename,
+                    type: type,
+                    size: size,
+                    date: date,
+                    searchText: filename.toLowerCase()
+                };
+            });
+        }
+
+        // Enhanced drag and drop functionality
+        function setupDragAndDrop() {
+            document.addEventListener('dragenter', handleDragEnter);
+            document.addEventListener('dragleave', handleDragLeave);
+            document.addEventListener('dragover', handleDragOver);
+            document.addEventListener('drop', handleDrop);
+        }
+
+        function handleDragEnter(e) {
             e.preventDefault();
+            dragCounter++;
+            if (e.dataTransfer.types.includes('Files')) {
+                uploadArea.style.display = 'flex';
+                uploadArea.classList.add('dragover');
+            }
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            dragCounter--;
+            if (dragCounter === 0) {
+                uploadArea.style.display = 'none';
+                uploadArea.classList.remove('dragover');
+            }
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            dragCounter = 0;
+            uploadArea.style.display = 'none';
             uploadArea.classList.remove('dragover');
             
             const files = Array.from(e.dataTransfer.files).filter(file => 
@@ -335,130 +176,303 @@
             
             if (files.length > 0) {
                 uploadFiles(files);
-            } else {
+            } else if (e.dataTransfer.files.length > 0) {
                 showAlert('Please drop only PDF files', 'error');
             }
-        });
-
-        // File input change
-        fileInput.addEventListener('change', (e) => {
-            const files = Array.from(e.target.files);
-            if (files.length > 0) {
-                uploadFiles(files);
-            }
-        });
-
-        // Upload files function
-        function uploadFiles(files) {
-            files.forEach(file => {
-                const formData = new FormData();
-                formData.append('file', file);
-
-                fetch('/upload', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        showAlert(`✅ ${file.name} uploaded successfully!`, 'success');
-                        setTimeout(() => location.reload(), 1500);
-                    } else {
-                        showAlert(`❌ Error uploading ${file.name}: ${data.error}`, 'error');
-                    }
-                })
-                .catch(error => {
-                    showAlert(`❌ Error uploading ${file.name}: ${error.message}`, 'error');
-                });
-            });
-
-            // Clear file input
-            fileInput.value = '';
         }
 
-        // Search functionality
-        let searchTimeout;
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(searchTimeout);
-            searchTimeout = setTimeout(() => {
-                const query = e.target.value.trim();
-                
-                if (query.length === 0) {
-                    location.reload();
-                    return;
+        // File input setup
+        function setupFileInput() {
+            fileInput.addEventListener('change', (e) => {
+                const files = Array.from(e.target.files);
+                if (files.length > 0) {
+                    uploadFiles(files);
                 }
+            });
+        }
 
-                fetch(`/search?q=${encodeURIComponent(query)}`)
-                .then(response => response.json())
-                .then(data => {
-                    displaySearchResults(data.results);
-                })
-                .catch(error => {
-                    showAlert('Search failed: ' + error.message, 'error');
-                });
+        // Enhanced search functionality
+        function setupSearch() {
+            searchInput.addEventListener('input', handleSearch);
+            searchInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    clearSearch();
+                }
+            });
+        }
+
+        function handleSearch(e) {
+            clearTimeout(searchTimeout);
+            const query = e.target.value.trim();
+            
+            if (query.length === 0) {
+                clearSearch();
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                performSearch(query);
             }, 300);
-        });
+        }
 
-        // Display search results
-        function displaySearchResults(results) {
-            if (results.length === 0) {
-                filesList.innerHTML = `
-                    <div class="empty-state">
-                        <h3>No files found</h3>
-                        <p>No PDF files match your search criteria.</p>
-                    </div>
-                `;
+        function performSearch(query) {
+            const searchTerm = query.toLowerCase();
+            
+            // Try server-side search first
+            if (typeof window.fetch !== 'undefined') {
+                serverSearch(query)
+                    .then(results => {
+                        if (results && results.length !== undefined) {
+                            displaySearchResults(results, query);
+                        } else {
+                            // Fallback to client-side search
+                            clientSideSearch(searchTerm);
+                        }
+                    })
+                    .catch(() => {
+                        // Fallback to client-side search
+                        clientSideSearch(searchTerm);
+                    });
+            } else {
+                // Client-side search only
+                clientSideSearch(searchTerm);
+            }
+        }
+
+        async function serverSearch(query) {
+            try {
+                const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
+                if (!response.ok) throw new Error('Search failed');
+                const data = await response.json();
+                return data.results || [];
+            } catch (error) {
+                console.warn('Server search failed, using client-side search');
+                throw error;
+            }
+        }
+
+        function clientSideSearch(searchTerm) {
+            const filteredFiles = allFiles.filter(file => 
+                file.searchText.includes(searchTerm)
+            );
+            
+            displayClientSearchResults(filteredFiles, searchTerm);
+        }
+
+        function displayClientSearchResults(filteredFiles, query) {
+            if (filteredFiles.length === 0) {
+                showNoSearchResults(query);
+                return;
+            }
+
+            // Hide all files first
+            allFiles.forEach(file => {
+                file.element.style.display = 'none';
+            });
+
+            // Show matching files
+            filteredFiles.forEach(file => {
+                file.element.style.display = 'grid';
+                highlightSearchTerm(file.element, query);
+            });
+        }
+
+        function displaySearchResults(results, query) {
+            if (!results || results.length === 0) {
+                showNoSearchResults(query);
                 return;
             }
 
             filesList.innerHTML = results.map(pdf => `
-                <div class="file-item" data-filename="${pdf.filename}">
-                    <div class="file-icon">PDF</div>
-                    <div class="file-info">
-                        <div class="file-name">${pdf.filename}</div>
-                        <div class="file-meta">
-                            Uploaded: ${pdf.upload_date} • Size: ${pdf.file_size}
-                        </div>
+                <div class="file-row" data-filename="${escapeHtml(pdf.filename)}">
+                    <div class="file-name">
+                        <div class="file-icon">📄</div>
+                        <span>${highlightText(escapeHtml(pdf.filename), query)}</span>
                     </div>
+                    <div class="file-type">application/pdf</div>
+                    <div class="file-size">${escapeHtml(pdf.file_size || 'Unknown')}</div>
+                    <div class="file-date">${escapeHtml(pdf.upload_date ? pdf.upload_date.split(' ')[0] : 'Unknown')}</div>
                     <div class="file-actions">
-                        <a href="/preview/${pdf.id}" target="_blank" class="btn btn-primary">
-                           👁️ Preview
-                        </a>
-                        <a href="/download/${pdf.id}" class="btn btn-secondary">
-                           ⬇️ Download
-                        </a>
-                        <button class="btn btn-danger" onclick="deleteFile(${pdf.id}, '${pdf.filename}')">
-                            🗑️ Delete
+                        <button class="action-btn" title="Download" onclick="downloadFile(${pdf.id})">
+                            ⬇️
+                        </button>
+                        <button class="action-btn" title="Share" onclick="shareFile(${pdf.id})">
+                            🔗
+                        </button>
+                        <button class="action-btn danger" title="Delete" onclick="deleteFile(${pdf.id}, '${escapeHtml(pdf.filename)}')">
+                            🗑️
+                        </button>
+                        <button class="action-btn" title="Preview" onclick="previewFile(${pdf.id})">
+                            👁️
                         </button>
                     </div>
                 </div>
             `).join('');
         }
 
-        // Delete file function
-        function deleteFile(fileId, filename) {
-            if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+        function showNoSearchResults(query) {
+            filesList.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <h3>No files found</h3>
+                    <p>No PDF files match "${escapeHtml(query)}". Try a different search term.</p>
+                    <button onclick="clearSearch()" style="margin-top: 16px; padding: 8px 16px; background: #1a73e8; color: white; border: none; border-radius: 4px; cursor: pointer;">Clear Search</button>
+                </div>
+            `;
+        }
+
+        function clearSearch() {
+            searchInput.value = '';
+            
+            // Show all files again
+            allFiles.forEach(file => {
+                file.element.style.display = 'grid';
+                removeHighlights(file.element);
+            });
+            
+            // If no files exist, show empty state
+            if (allFiles.length === 0) {
+                filesList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📁</div>
+                        <h3>No files in Drive</h3>
+                        <p>Upload your first PDF file to get started</p>
+                    </div>
+                `;
+            }
+        }
+
+        function highlightSearchTerm(element, term) {
+            const nameSpan = element.querySelector('.file-name span');
+            const originalText = nameSpan.textContent;
+            nameSpan.innerHTML = highlightText(originalText, term);
+        }
+
+        function removeHighlights(element) {
+            const nameSpan = element.querySelector('.file-name span');
+            const originalText = nameSpan.textContent;
+            nameSpan.innerHTML = escapeHtml(originalText);
+        }
+
+        function highlightText(text, term) {
+            if (!term) return escapeHtml(text);
+            
+            const regex = new RegExp(`(${escapeRegex(term)})`, 'gi');
+            return escapeHtml(text).replace(regex, '<mark style="background: #fff2cc; padding: 1px 2px; border-radius: 2px;">$1</mark>');
+        }
+
+        // Upload files function
+        function uploadFiles(files) {
+            const uploadPromises = files.map(file => uploadFile(file));
+            
+            Promise.allSettled(uploadPromises).then(results => {
+                const successful = results.filter(r => r.status === 'fulfilled').length;
+                const failed = results.filter(r => r.status === 'rejected').length;
+                
+                if (successful > 0) {
+                    showAlert(`${successful} file(s) uploaded successfully!`, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                }
+                
+                if (failed > 0) {
+                    showAlert(`${failed} file(s) failed to upload`, 'error');
+                }
+            });
+
+            fileInput.value = '';
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (!data.success) {
+                throw new Error(data.error || 'Upload failed');
+            }
+
+            return data;
+        }
+
+        // File action functions
+        function downloadFile(fileId) {
+            window.open(`/download/${fileId}`, '_blank');
+        }
+
+        function shareFile(fileId) {
+            const shareUrl = `${window.location.origin}/preview/${fileId}`;
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(shareUrl)
+                    .then(() => {
+                        showAlert('Share link copied to clipboard!', 'success');
+                    })
+                    .catch(() => {
+                        promptCopyLink(shareUrl);
+                    });
+            } else {
+                promptCopyLink(shareUrl);
+            }
+        }
+
+        function promptCopyLink(url) {
+            const textArea = document.createElement('textarea');
+            textArea.value = url;
+            document.body.appendChild(textArea);
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                showAlert('Share link copied to clipboard!', 'success');
+            } catch (err) {
+                prompt('Copy this link:', url);
+            }
+            
+            document.body.removeChild(textArea);
+        }
+
+        function previewFile(fileId) {
+            window.open(`/preview/${fileId}`, '_blank');
+        }
+
+        async function deleteFile(fileId, filename) {
+            if (!confirm(`Are you sure you want to delete "${filename}"?\n\nThis action cannot be undone.`)) {
                 return;
             }
 
-            fetch(`/delete/${fileId}`, {
-                method: 'POST'
-            })
-            .then(response => response.json())
-            .then(data => {
+            try {
+                const response = await fetch(`/delete/${fileId}`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
                 if (data.success) {
-                    showAlert(`✅ ${filename} deleted successfully!`, 'success');
+                    showAlert(`${filename} deleted successfully!`, 'success');
                     setTimeout(() => location.reload(), 1500);
                 } else {
-                    showAlert(`❌ Error deleting file: ${data.error}`, 'error');
+                    throw new Error(data.error || 'Delete failed');
                 }
-            })
-            .catch(error => {
-                showAlert(`❌ Error deleting file: ${error.message}`, 'error');
-            });
+            } catch (error) {
+                showAlert(`Error deleting file: ${error.message}`, 'error');
+            }
         }
 
-        // Show alert function
+        // Utility functions
         function showAlert(message, type) {
             alert.className = `alert ${type}`;
             alert.textContent = message;
@@ -466,8 +480,29 @@
 
             setTimeout(() => {
                 alert.style.display = 'none';
-            }, 5000);
+            }, 4000);
         }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // Error handling
+        window.addEventListener('error', function(e) {
+            console.error('JavaScript error:', e.error);
+            showAlert('An error occurred. Please refresh the page.', 'error');
+        });
+
+        window.addEventListener('unhandledrejection', function(e) {
+            console.error('Unhandled promise rejection:', e.reason);
+            showAlert('An error occurred. Please try again.', 'error');
+        });
     </script>
 </body>
 </html>
