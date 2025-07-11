@@ -37,7 +37,36 @@
 
         <input type="file" id="fileInput" class="file-input" accept=".pdf" multiple>
 
-        <div class="section-header">My Drive</div>
+        <div class="tabs-container" style="margin-bottom: 20px; border-bottom: 1px solid #ccc;">
+            <a href="{{ url_for('home', tab='my_files') }}"
+               class="tab-link {% if active_tab == 'my_files' %}active{% endif %}"
+               style="padding: 10px 15px; text-decoration: none; color: #333; border-bottom: 3px solid transparent;">
+               My Drive
+            </a>
+            <a href="{{ url_for('home', tab='global_files') }}"
+               class="tab-link {% if active_tab == 'global_files' %}active{% endif %}"
+               style="padding: 10px 15px; text-decoration: none; color: #333; border-bottom: 3px solid transparent;">
+               Global Files
+            </a>
+        </div>
+        <style>
+            .tab-link.active {
+                border-bottom-color: #1a73e8 !important; /* Primary color */
+                font-weight: 600;
+                color: #1a73e8 !important;
+            }
+            .tab-link:hover {
+                background-color: #f0f0f0;
+            }
+        </style>
+
+        <div class="section-header">
+            {% if active_tab == 'global_files' %}
+                Global Files
+            {% else %}
+                My Drive
+            {% endif %}
+        </div>
 
         <div class="files-container">
             <div class="files-header">
@@ -45,13 +74,18 @@
                 <div>TYPE</div>
                 <div>SIZE</div>
                 <div>DATE</div>
+                {% if active_tab == 'global_files' %}
+                    <div>UPLOADED BY</div>
+                {% else %} {# My Drive Tab #}
+                    <div>MAKE GLOBAL</div>
+                {% endif %}
                 <div>ACTIONS</div>
             </div>
             
             <div id="filesList">
-                {% if pdfs %} {# This block now renders the first page of PDFs #}
+                {% if pdfs %}
                     {% for pdf in pdfs %}
-                    <div class="file-row" data-filename="{{ pdf.filename }}">
+                    <div class="file-row" data-file-id="{{ pdf.id }}" data-filename="{{ pdf.filename }}">
                         <div class="file-name">
                             <div class="file-icon">📄</div>
                             <span>{{ pdf.filename }}</span>
@@ -59,16 +93,34 @@
                         <div class="file-type">application/pdf</div>
                         <div class="file-size">{{ pdf.file_size }}</div>
                         <div class="file-date">{{ pdf.upload_date.split()[0] }}</div>
+
+                        {% if active_tab == 'global_files' %}
+                            <div class="file-owner">{{ pdf.user_email }}</div>
+                        {% else %} {# My Drive Tab - only show checkbox for user's own files #}
+                            <div class="file-make-global">
+                                {# Assuming pdf.user_email is implicitly the current session user for 'my_files' tab data from get_user_files #}
+                                {# The data from get_user_files now includes is_global status #}
+                                <input type="checkbox" class="make-global-checkbox" data-file-id="{{ pdf.id }}"
+                                       {% if pdf.is_global %}checked{% endif %}
+                                       title="Mark as Global / Private">
+                            </div>
+                        {% endif %}
+
                         <div class="file-actions">
                             <button class="action-btn" title="Download" onclick="downloadFile('{{ pdf.id }}')">
                                 ⬇️
                             </button>
-                            <button class="action-btn" title="Share" onclick="shareFile('{{ pdf.id }}')">
+                            {# Share button might be less relevant for global files unless context is clear #}
+                            {# <button class="action-btn" title="Share" onclick="shareFile('{{ pdf.id }}')">
                                 🔗
-                            </button>
+                            </button> #}
+                            {% if active_tab == 'my_files' or pdf.user_email == session.user %}
+                            {# Only show delete for own files, even in global (though global delete might be complex) #}
+                            {# For simplicity, delete is only shown for "my_files" tab here, implying ownership #}
                             <button class="action-btn danger" title="Delete" onclick="deleteFile('{{ pdf.id }}', '{{ pdf.filename }}')">
                                 🗑️
                             </button>
+                            {% endif %}
                             <button class="action-btn" title="Preview" onclick="previewFile('{{ pdf.id }}')">
                                 👁️
                             </button>
@@ -78,8 +130,20 @@
                 {% else %}
                     <div class="empty-state">
                         <div class="empty-icon">📁</div>
-                        <h3>No files in Drive</h3>
-                        <p>Upload your first PDF file to get started</p>
+                        <h3>
+                            {% if active_tab == 'global_files' %}
+                                No global files available.
+                            {% else %}
+                                No files in Drive.
+                            {% endif %}
+                        </h3>
+                        <p>
+                            {% if active_tab == 'my_files' %}
+                                Upload your first PDF file to get started or check the Global Files tab.
+                            {% else %}
+                                Check back later or mark some of your own files as global.
+                            {% endif %}
+                        </p>
                     </div>
                 {% endif %}
             </div>
@@ -89,7 +153,7 @@
             <div class="pagination-controls" style="text-align: center; margin-top: 20px; padding-bottom: 20px;">
                 {# Previous Button #}
                 {% if current_page > 1 %}
-                    <a href="{{ url_for('home', page=current_page - 1) }}" class="pagination-arrow" title="Previous Page">&laquo; Prev</a>
+                    <a href="{{ url_for('home', tab=active_tab, page=current_page - 1) }}" class="pagination-arrow" title="Previous Page">&laquo; Prev</a>
                 {% else %}
                     <span class="pagination-arrow disabled" title="Previous Page">&laquo; Prev</span>
                 {% endif %}
@@ -102,7 +166,7 @@
                 {% if end_page > total_pages %}{% set end_page = total_pages %}{% endif %}
 
                 {% if start_page > 1 %}
-                    <a href="{{ url_for('home', page=1) }}" class="pagination-number">1</a>
+                    <a href="{{ url_for('home', tab=active_tab, page=1) }}" class="pagination-number">1</a>
                     {% if start_page > 2 %}
                         <span class="pagination-ellipsis">...</span>
                     {% endif %}
@@ -112,7 +176,7 @@
                     {% if page_num == current_page %}
                         <span class="pagination-number active">{{ page_num }}</span>
                     {% else %}
-                        <a href="{{ url_for('home', page=page_num) }}" class="pagination-number">{{ page_num }}</a>
+                        <a href="{{ url_for('home', tab=active_tab, page=page_num) }}" class="pagination-number">{{ page_num }}</a>
                     {% endif %}
                 {% endfor %}
 
@@ -120,12 +184,12 @@
                     {% if end_page < total_pages - 1 %}
                         <span class="pagination-ellipsis">...</span>
                     {% endif %}
-                    <a href="{{ url_for('home', page=total_pages) }}" class="pagination-number">{{ total_pages }}</a>
+                    <a href="{{ url_for('home', tab=active_tab, page=total_pages) }}" class="pagination-number">{{ total_pages }}</a>
                 {% endif %}
 
                 {# Next Button #}
                 {% if current_page < total_pages %}
-                    <a href="{{ url_for('home', page=current_page + 1) }}" class="pagination-arrow" title="Next Page">Next &raquo;</a>
+                    <a href="{{ url_for('home', tab=active_tab, page=current_page + 1) }}" class="pagination-arrow" title="Next Page">Next &raquo;</a>
                 {% else %}
                     <span class="pagination-arrow disabled" title="Next Page">Next &raquo;</span>
                 {% endif %}
@@ -165,6 +229,9 @@
             setupFileInput();
             setupSearch();
             // setupInfiniteScroll(); // Removed
+            if (document.querySelector('.make-global-checkbox')) { // Only setup if checkboxes are present
+                setupGlobalCheckboxes();
+            }
             updateEmptyState(); // Check if initially empty
             
             console.log('Drive Clone initialized successfully');
@@ -173,6 +240,38 @@
         // function setupInfiniteScroll() { ... } // Removed
         // async function loadMoreFiles() { ... } // Removed
         // function appendFiles(newFiles) { ... } // Removed - Page reload will handle list updates
+
+        function setupGlobalCheckboxes() {
+            document.querySelectorAll('.make-global-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', async function() {
+                    const fileId = this.dataset.fileId;
+                    const isGlobal = this.checked;
+
+                    try {
+                        const response = await fetch(`/set_global_status/${fileId}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                // Include CSRF token header here if your app uses them
+                            },
+                            body: JSON.stringify({ is_global: isGlobal })
+                        });
+
+                        const result = await response.json();
+                        if (response.ok && result.status === 'success') {
+                            showAlert(result.message, 'success');
+                            // Optionally, you could visually update something or just rely on next page load/refresh
+                        } else {
+                            showAlert(result.message || 'Failed to update global status.', 'error');
+                            this.checked = !isGlobal; // Revert checkbox on failure
+                        }
+                    } catch (error) {
+                        showAlert('Error updating global status: ' + error.message, 'error');
+                        this.checked = !isGlobal; // Revert checkbox on failure
+                    }
+                });
+            });
+        }
 
         function updateEmptyState() {
             const filesListContainer = document.getElementById('filesList');

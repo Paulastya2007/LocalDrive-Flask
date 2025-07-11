@@ -22,9 +22,18 @@ class FileManager:
                 file_path TEXT NOT NULL,
                 upload_date TEXT NOT NULL,
                 file_size INTEGER NOT NULL,
+                is_global INTEGER DEFAULT 0,
                 FOREIGN KEY (user_email) REFERENCES users (email)
             )
         ''')
+        # Add is_global column if it doesn't exist (for existing databases)
+        try:
+            cursor.execute("SELECT is_global FROM files LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column does not exist, so add it
+            cursor.execute("ALTER TABLE files ADD COLUMN is_global INTEGER DEFAULT 0")
+            print("Added is_global column to files table.")
+
         conn.commit()
         conn.close()
 
@@ -191,25 +200,27 @@ class FileManager:
             # Calculate offset
             offset = (page - 1) * per_page
 
+            # Select is_global along with other file details
             cursor.execute('''
-                SELECT id, filename, upload_date, file_size
+                SELECT id, filename, upload_date, file_size, is_global
                 FROM files 
                 WHERE user_email = ?
                 ORDER BY upload_date DESC
                 LIMIT ? OFFSET ?
             ''', (user_email, per_page, offset))
             
-            files = cursor.fetchall()
+            files_data = cursor.fetchall() # Renamed to avoid conflict
             conn.close()
             
             # Convert to list of dictionaries for easier template usage
             file_list = []
-            for file_data in files:
+            for row in files_data: # Use new variable name
                 file_list.append({
-                    'id': file_data[0],
-                    'filename': file_data[1],
-                    'upload_date': file_data[2],
-                    'file_size': self.format_file_size(file_data[3])
+                    'id': row[0],
+                    'filename': row[1],
+                    'upload_date': row[2],
+                    'file_size': self.format_file_size(row[3]),
+                    'is_global': bool(row[4]) # Convert 0/1 to True/False
                 })
             
             return file_list, total_files
@@ -325,3 +336,93 @@ class FileManager:
             i += 1
         
         return f"{size:.1f} {size_names[i]}"
+
+    def set_file_global_status(self, file_id, user_email, is_global_flag):
+        """
+        Sets the is_global status for a file.
+        Only the owner of the file can change its global status.
+        is_global_flag should be a boolean (True for global, False for not global).
+        """
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        try:
+            # First, verify ownership
+            cursor.execute("SELECT user_email FROM files WHERE id = ?", (file_id,))
+            result = cursor.fetchone()
+
+            if not result:
+                conn.close()
+                return False, "File not found."
+
+            if result[0] != user_email:
+                conn.close()
+                return False, "Access denied. You are not the owner of this file."
+
+            # Ownership confirmed, update the status
+            new_status = 1 if is_global_flag else 0
+            cursor.execute("UPDATE files SET is_global = ? WHERE id = ?", (new_status, file_id))
+            conn.commit()
+
+            if cursor.rowcount > 0:
+                status_text = "global" if is_global_flag else "private"
+                conn.close()
+                return True, f"File status successfully updated to {status_text}."
+            else:
+                # Should not happen if file was found and ownership confirmed,
+                # but good to have a fallback.
+                conn.close()
+                return False, "Failed to update file status (file ID might be incorrect after check)."
+
+        except sqlite3.Error as e:
+            if conn:
+                conn.rollback() # Rollback in case of error during transaction
+                conn.close()
+            return False, f"Database error: {str(e)}"
+        finally:
+            if conn and conn.in_transaction: # Ensure connection is closed if error happened before close
+                 conn.close()
+            elif conn: # Ensure connection is closed even if not in transaction from the start of try
+                conn.close()
+
+    def get_global_files(self, page=1, per_page=5):
+        """Get all global files with pagination."""
+        try:
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+
+            # Get total number of global files
+            cursor.execute("SELECT COUNT(id) FROM files WHERE is_global = 1")
+            total_global_files = cursor.fetchone()[0]
+
+            # Calculate offset
+            offset = (page - 1) * per_page
+
+            # Fetch paginated global files, including the uploader's email
+            cursor.execute('''
+                SELECT id, filename, upload_date, file_size, user_email
+                FROM files
+                WHERE is_global = 1
+                ORDER BY upload_date DESC
+                LIMIT ? OFFSET ?
+            ''', (per_page, offset))
+
+            files_data = cursor.fetchall()
+            conn.close()
+
+            file_list = []
+            for row in files_data:
+                file_list.append({
+                    'id': row[0],
+                    'filename': row[1],
+                    'upload_date': row[2],
+                    'file_size': self.format_file_size(row[3]),
+                    'user_email': row[4] # Uploader's email
+                })
+
+            return file_list, total_global_files
+
+        except Exception as e:
+            print(f"Error getting global files: {e}")
+            if conn:
+                conn.close()
+            return [], 0

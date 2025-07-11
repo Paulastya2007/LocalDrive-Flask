@@ -37,17 +37,32 @@ def allowed_file(filename):
 
 @app.route('/')
 def home():
-    if 'user' in session:
-        page = request.args.get('page', 1, type=int)
-        per_page = 5 # Files per page for initial load, can be same as infinite scroll
+    if 'user' not in session:
+        return redirect(url_for('login'))
 
-        user_pdfs, total_files = file_manager.get_user_files(session['user'], page=page, per_page=per_page)
+    page = request.args.get('page', 1, type=int)
+    per_page = 5  # Files per page
+    active_tab = request.args.get('tab', 'my_files') # Default to 'my_files'
 
-        # Calculate total pages for frontend for pagination controls
-        total_pages = (total_files + per_page - 1) // per_page
+    files_list = []
+    total_files = 0
 
-        return render_template('home.html', user=session['user'], pdfs=user_pdfs, current_page=page, total_files=total_files, per_page=per_page, total_pages=total_pages)
-    return redirect(url_for('login'))
+    if active_tab == 'global_files':
+        files_list, total_files = file_manager.get_global_files(page=page, per_page=per_page)
+    else: # Default to 'my_files'
+        active_tab = 'my_files' # Ensure active_tab is correctly set if default
+        files_list, total_files = file_manager.get_user_files(session['user'], page=page, per_page=per_page)
+
+    total_pages = (total_files + per_page - 1) // per_page
+
+    return render_template('home.html',
+                           user=session['user'],
+                           pdfs=files_list,
+                           current_page=page,
+                           total_files=total_files,
+                           per_page=per_page,
+                           total_pages=total_pages,
+                           active_tab=active_tab)
 
 # Removed /load_files route as it's no longer needed for button pagination
 
@@ -274,6 +289,33 @@ def admin_panel():
 
     users = get_all_users() # Fetch all users (email, created_at)
     return render_template('admin_panel.html', users=users)
+
+@app.route('/set_global_status/<int:file_id>', methods=['POST'])
+def set_global_status(file_id):
+    if 'user' not in session:
+        return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+
+    try:
+        data = request.get_json()
+        if data is None or 'is_global' not in data or not isinstance(data['is_global'], bool):
+            return jsonify({'status': 'error', 'message': 'Invalid request. Missing or malformed "is_global" boolean field in JSON body.'}), 400
+
+        is_global_flag = data['is_global']
+    except Exception: # Catch errors from get_json if content type is wrong etc.
+        return jsonify({'status': 'error', 'message': 'Invalid request format. Expected JSON.'}), 400
+
+    success, message = file_manager.set_file_global_status(file_id, session['user'], is_global_flag)
+
+    if success:
+        return jsonify({'status': 'success', 'message': message}), 200
+    else:
+        # Determine appropriate status code based on message
+        if "Access denied" in message:
+            return jsonify({'status': 'error', 'message': message}), 403 # Forbidden
+        elif "File not found" in message:
+            return jsonify({'status': 'error', 'message': message}), 404 # Not Found
+        else:
+            return jsonify({'status': 'error', 'message': message}), 500 # Internal Server Error / General Error
 
 @app.route('/admin/reset-password/<path:user_email_for_reset>', methods=['POST'])
 def admin_reset_password(user_email_for_reset):
