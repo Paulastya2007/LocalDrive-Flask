@@ -2,21 +2,28 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 from utils.auth import create_user, authenticate_user, validate_email, validate_password
 from utils.filemanager import FileManager
 import os
+import shutil # Added for shutil.rmtree
 from werkzeug.utils import secure_filename
+
+import tempfile # For temporary file handling
 
 app = Flask(__name__)
 app.secret_key = 'my_secret_key'  # Change this to a more secure key in production
 
-# Initialize file manager
-file_manager = FileManager()
-
 # Configure upload settings
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.path.abspath('uploads') # Use absolute path
+TEMP_FOLDER = os.path.join(UPLOAD_FOLDER, 'temp') # Temporary folder for uploads
+
 MAX_FILE_SIZE = 16 * 1024 * 1024  # 16MB max file size
 app.config['MAX_CONTENT_LENGTH'] = MAX_FILE_SIZE
 
-# Create upload directory if it doesn't exist
+# Create upload and temp directories if they don't exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(TEMP_FOLDER, exist_ok=True)
+
+# Initialize file manager
+file_manager = FileManager(upload_folder=UPLOAD_FOLDER)
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() == 'pdf'
@@ -24,10 +31,33 @@ def allowed_file(filename):
 @app.route('/')
 def home():
     if 'user' in session:
-        # Get user's PDFs
-        user_pdfs = file_manager.get_user_files(session['user'])
-        return render_template('home.html', user=session['user'], pdfs=user_pdfs)
+        page = request.args.get('page', 1, type=int)
+        per_page = 5 # Files per page for initial load, can be same as infinite scroll
+
+        user_pdfs, total_files = file_manager.get_user_files(session['user'], page=page, per_page=per_page)
+
+        # Calculate total pages for frontend, though not strictly needed for infinite scroll
+        # total_pages = (total_files + per_page - 1) // per_page
+
+        return render_template('home.html', user=session['user'], pdfs=user_pdfs, current_page=page, total_files=total_files, per_page=per_page)
     return redirect(url_for('login'))
+
+@app.route('/load_files')
+def load_files():
+    if 'user' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+
+    page = request.args.get('page', 1, type=int)
+    per_page = 5 # Files per page for infinite scroll
+
+    files, total_files = file_manager.get_user_files(session['user'], page=page, per_page=per_page)
+
+    return jsonify({
+        'files': files,
+        'has_more': (page * per_page) < total_files,
+        'next_page': page + 1 if (page * per_page) < total_files else None,
+        'total_files': total_files
+    })
 
 @app.route('/upload', methods=['POST'])
 def upload_file():
@@ -44,31 +74,53 @@ def upload_file():
     if not allowed_file(file.filename):
         return jsonify({'error': 'Only PDF files are allowed'}), 400
     
+    action = request.form.get('action', 'default') # Get action: 'default', 'replace', 'keep_both'
+    original_filename = secure_filename(file.filename)
+
+    # Save to a temporary location first
+    temp_dir = tempfile.mkdtemp(dir=TEMP_FOLDER)
+    temp_file_path = os.path.join(temp_dir, original_filename)
+
     try:
-        # Secure the filename
-        filename = secure_filename(file.filename)
+        file.save(temp_file_path)
         
-        # Save file to uploads directory
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(file_path)
-        
-        # Add to database
-        success, message = file_manager.add_file(
+        # Let FileManager handle moving to final destination and DB operations
+        result = file_manager.add_file(
             user_email=session['user'],
-            filename=filename,
-            file_path=file_path
+            original_filename=original_filename,
+            temp_uploaded_path=temp_file_path,
+            action=action
         )
         
-        if success:
-            return jsonify({'success': True, 'message': 'File uploaded successfully'})
-        else:
-            # Clean up file if database insertion failed
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            return jsonify({'error': message}), 500
+        # If successfully moved by file_manager, temp_file_path won't exist.
+        # If status is 'duplicate', temp_file_path still exists and frontend will decide.
+        # If status is 'error' before move, temp_file_path exists.
+        # If status is 'error' after move (DB error), file_manager tries to clean up moved file.
+
+        if result.get("status") == "duplicate":
+            # Don't remove temp_file_path yet, client might need to retry with a different action.
+            # The client will need to re-upload the file for 'replace' or 'keep_both' actions if this temp file is cleaned up too soon.
+            # For simplicity in this iteration, we'll require re-upload. So, clean up here.
+            # A more advanced implementation might keep the temp file alive based on a session or token.
+            return jsonify(result), 200 # Send 200 OK with duplicate status
+
+        elif result.get("status") == "success":
+            return jsonify(result), 201
+        else: # Error
+            return jsonify(result), 500
             
     except Exception as e:
-        return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+        # General exception during save or add_file call itself
+        return jsonify({'status': 'error', 'message': f'Upload processing failed: {str(e)}'}), 500
+    finally:
+        # Clean up the temporary directory and its contents
+        # This will remove temp_file_path if it wasn't moved or if an error occurred before moving.
+        if os.path.exists(temp_dir):
+            try:
+                shutil.rmtree(temp_dir)
+            except Exception as e:
+                print(f"Error cleaning up temporary directory {temp_dir}: {e}")
+
 
 @app.route('/download/<int:file_id>')
 def download_file(file_id):

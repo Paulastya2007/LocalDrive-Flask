@@ -49,7 +49,7 @@
             </div>
             
             <div id="filesList">
-                {% if pdfs %}
+                {% if pdfs %} {# This block now renders the first page of PDFs #}
                     {% for pdf in pdfs %}
                     <div class="file-row" data-filename="{{ pdf.filename }}">
                         <div class="file-name">
@@ -83,6 +83,9 @@
                     </div>
                 {% endif %}
             </div>
+            <div id="loadingIndicator" style="display: none; text-align: center; padding: 20px;">
+                Loading more files...
+            </div>
         </div>
     </div>
 
@@ -95,7 +98,14 @@
         const alert = document.getElementById('alert');
         let dragCounter = 0;
         let searchTimeout;
-        let allFiles = []; // Store all files for client-side search fallback
+        // let allFiles = []; // Store all files for client-side search fallback - Will be managed differently with pagination
+
+        // Pagination variables
+        let currentPage = {{ current_page }};
+        const perPage = {{ per_page }};
+        let totalFiles = {{ total_files }};
+        let isLoading = false;
+        let hasMoreFiles = (currentPage * perPage) < totalFiles;
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -103,36 +113,124 @@
         });
 
         function initializeApp() {
-            // Store initial file data for search functionality
-            storeFileData();
+            // Initial file data is now rendered by Flask for the first page
+            // storeFileData(); // Not needed in the same way for paginated data
             
             // Setup event listeners
             setupDragAndDrop();
             setupFileInput();
             setupSearch();
+            setupInfiniteScroll();
+            updateEmptyState(); // Check if initially empty
             
             console.log('Drive Clone initialized successfully');
         }
 
-        // Store file data from DOM for search functionality
-        function storeFileData() {
-            const fileRows = document.querySelectorAll('.file-row');
-            allFiles = Array.from(fileRows).map(row => {
-                const filename = row.querySelector('.file-name span').textContent;
-                const type = row.querySelector('.file-type').textContent;
-                const size = row.querySelector('.file-size').textContent;
-                const date = row.querySelector('.file-date').textContent;
-                
-                return {
-                    element: row,
-                    filename: filename,
-                    type: type,
-                    size: size,
-                    date: date,
-                    searchText: filename.toLowerCase()
-                };
+        // Store file data from DOM for search functionality - adjust for pagination
+        // This might be less relevant if server-side search is primary
+        // function storeFileData() { ... }
+
+        function setupInfiniteScroll() {
+            window.addEventListener('scroll', () => {
+                if (isLoading || !hasMoreFiles) return;
+
+                // Check if user is near the bottom
+                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+                    loadMoreFiles();
+                }
             });
         }
+
+        async function loadMoreFiles() {
+            if (isLoading || !hasMoreFiles) return;
+            isLoading = true;
+            document.getElementById('loadingIndicator').style.display = 'block';
+
+            try {
+                const nextPageToFetch = currentPage + 1;
+                const response = await fetch(`/load_files?page=${nextPageToFetch}`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+
+                if (data.files && data.files.length > 0) {
+                    appendFiles(data.files);
+                    currentPage = nextPageToFetch;
+                    hasMoreFiles = data.has_more;
+                    totalFiles = data.total_files; // Update total files count
+                } else {
+                    hasMoreFiles = false; // No more files
+                }
+            } catch (error) {
+                console.error('Error loading more files:', error);
+                showAlert('Could not load more files.', 'error');
+                // Optionally, set hasMoreFiles to false or implement retry logic
+            } finally {
+                isLoading = false;
+                document.getElementById('loadingIndicator').style.display = 'none';
+                updateEmptyState(); // In case all files were deleted then new ones loaded
+            }
+        }
+
+        function appendFiles(newFiles) {
+            const filesListContainer = document.getElementById('filesList');
+            // Remove empty state if it exists
+            const emptyState = filesListContainer.querySelector('.empty-state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+
+            newFiles.forEach(pdf => {
+                const fileRow = `
+                    <div class="file-row" data-filename="${escapeHtml(pdf.filename)}">
+                        <div class="file-name">
+                            <div class="file-icon">📄</div>
+                            <span>${escapeHtml(pdf.filename)}</span>
+                        </div>
+                        <div class="file-type">application/pdf</div>
+                        <div class="file-size">${escapeHtml(pdf.file_size || 'Unknown')}</div>
+                        <div class="file-date">${escapeHtml(pdf.upload_date ? pdf.upload_date.split(' ')[0] : 'Unknown')}</div>
+                        <div class="file-actions">
+                            <button class="action-btn" title="Download" onclick="downloadFile(${pdf.id})">
+                                ⬇️
+                            </button>
+                            <button class="action-btn" title="Share" onclick="shareFile(${pdf.id})">
+                                🔗
+                            </button>
+                            <button class="action-btn danger" title="Delete" onclick="deleteFile(${pdf.id}, '${escapeHtml(pdf.filename)}')">
+                                🗑️
+                            </button>
+                            <button class="action-btn" title="Preview" onclick="previewFile(${pdf.id})">
+                                👁️
+                            </button>
+                        </div>
+                    </div>
+                `;
+                filesListContainer.insertAdjacentHTML('beforeend', fileRow);
+            });
+        }
+
+        function updateEmptyState() {
+            const filesListContainer = document.getElementById('filesList');
+            const fileRows = filesListContainer.querySelectorAll('.file-row');
+            const emptyState = filesListContainer.querySelector('.empty-state');
+
+            if (fileRows.length === 0 && !isLoading) {
+                if (!emptyState) {
+                    filesListContainer.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-icon">📁</div>
+                            <h3>No files in Drive</h3>
+                            <p>Upload your first PDF file to get started</p>
+                        </div>
+                    `;
+                }
+            } else if (fileRows.length > 0 && emptyState) {
+                emptyState.remove();
+            }
+        }
+
 
         // Enhanced drag and drop functionality
         function setupDragAndDrop() {
@@ -218,28 +316,25 @@
         function performSearch(query) {
             const searchTerm = query.toLowerCase();
             
-            // Try server-side search first
-            if (typeof window.fetch !== 'undefined') {
-                serverSearch(query)
-                    .then(results => {
-                        if (results && results.length !== undefined) {
-                            displaySearchResults(results, query);
-                        } else {
-                            // Fallback to client-side search
-                            clientSideSearch(searchTerm);
-                        }
-                    })
-                    .catch(() => {
-                        // Fallback to client-side search
-                        clientSideSearch(searchTerm);
-                    });
-            } else {
-                // Client-side search only
-                clientSideSearch(searchTerm);
-            }
+            // Server-side search is the primary method now
+            serverSearch(query)
+                .then(results => {
+                    displaySearchResults(results, query);
+                })
+                .catch((error) => {
+                    console.error("Search failed:", error);
+                    showAlert('Search failed. Please try again.', 'error');
+                    // Optionally, implement a more robust client-side search for loaded items
+                    // For now, clearing to empty or previous state might be best
+                    filesList.innerHTML = '<div class="empty-state">Search request failed.</div>';
+                });
         }
 
         async function serverSearch(query) {
+            // Disable infinite scroll during search
+            hasMoreFiles = false;
+            document.getElementById('loadingIndicator').style.display = 'none';
+
             try {
                 const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
                 if (!response.ok) throw new Error('Search failed');
@@ -251,37 +346,23 @@
             }
         }
 
-        function clientSideSearch(searchTerm) {
-            const filteredFiles = allFiles.filter(file => 
-                file.searchText.includes(searchTerm)
-            );
-            
-            displayClientSearchResults(filteredFiles, searchTerm);
-        }
-
-        function displayClientSearchResults(filteredFiles, query) {
-            if (filteredFiles.length === 0) {
-                showNoSearchResults(query);
-                return;
-            }
-
-            // Hide all files first
-            allFiles.forEach(file => {
-                file.element.style.display = 'none';
-            });
-
-            // Show matching files
-            filteredFiles.forEach(file => {
-                file.element.style.display = 'grid';
-                highlightSearchTerm(file.element, query);
-            });
-        }
+        // function clientSideSearch(searchTerm) { ... } // Commenting out as it's not pagination aware
+        // function displayClientSearchResults(filteredFiles, query) { ... } // Commenting out
 
         function displaySearchResults(results, query) {
+            filesList.innerHTML = ''; // Clear previous results or initial files
             if (!results || results.length === 0) {
                 showNoSearchResults(query);
+                // When search yields no results, we should not attempt to load more via scrolling.
+                hasMoreFiles = false;
+                document.getElementById('loadingIndicator').style.display = 'none';
                 return;
             }
+
+            // Since search results are not paginated by the current server search,
+            // we display all of them and disable further "load more" for this search result view.
+            hasMoreFiles = false;
+            document.getElementById('loadingIndicator').style.display = 'none';
 
             filesList.innerHTML = results.map(pdf => `
                 <div class="file-row" data-filename="${escapeHtml(pdf.filename)}">
@@ -321,24 +402,45 @@
             `;
         }
 
-        function clearSearch() {
+        async function clearSearch() {
             searchInput.value = '';
+            filesList.innerHTML = ''; // Clear current content (search results or filtered list)
+            document.getElementById('loadingIndicator').style.display = 'block'; // Show loading indicator
             
-            // Show all files again
-            allFiles.forEach(file => {
-                file.element.style.display = 'grid';
-                removeHighlights(file.element);
-            });
-            
-            // If no files exist, show empty state
-            if (allFiles.length === 0) {
-                filesList.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">📁</div>
-                        <h3>No files in Drive</h3>
-                        <p>Upload your first PDF file to get started</p>
-                    </div>
-                `;
+            // Reset pagination and fetch first page
+            currentPage = 0; // Will become 1 in loadMoreFiles logic or set to 1 before direct call
+            hasMoreFiles = true; // Assume there are files until checked
+            isLoading = false; // Reset loading flag
+
+            try {
+                // Fetch and display the first page of files
+                const response = await fetch(`/load_files?page=1`);
+                if (!response.ok) throw new Error('Failed to reload files');
+                const data = await response.json();
+
+                if (data.files && data.files.length > 0) {
+                    appendFiles(data.files);
+                    currentPage = 1;
+                    hasMoreFiles = data.has_more;
+                    totalFiles = data.total_files;
+                } else {
+                    hasMoreFiles = false;
+                    totalFiles = 0;
+                }
+            } catch (error) {
+                console.error("Error clearing search and reloading files:", error);
+                showAlert('Error reloading files. Please refresh.', 'error');
+                filesList.innerHTML = '<div class="empty-state">Error loading files. Please refresh.</div>';
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                updateEmptyState(); // Check if the list is empty after reloading
+                // Re-enable infinite scroll if it was disabled by search
+                 // Check if (currentPage * perPage) < totalFiles;
+                if ((currentPage * perPage) < totalFiles) {
+                    hasMoreFiles = true;
+                } else {
+                    hasMoreFiles = false;
+                }
             }
         }
 
@@ -363,46 +465,139 @@
 
         // Upload files function
         function uploadFiles(files) {
-            const uploadPromises = files.map(file => uploadFile(file));
+            // Remove the Promise.allSettled for now, handle each file individually for UI alerts.
+            // This makes the process sequential for user feedback if duplicates occur.
+            // For a more advanced UX, one might collect all duplicates first, then ask.
             
-            Promise.allSettled(uploadPromises).then(results => {
-                const successful = results.filter(r => r.status === 'fulfilled').length;
-                const failed = results.filter(r => r.status === 'rejected').length;
-                
-                if (successful > 0) {
-                    showAlert(`${successful} file(s) uploaded successfully!`, 'success');
-                    setTimeout(() => location.reload(), 1500);
+            let filesToProcess = [...files]; // Create a mutable copy
+
+            async function processNextFile() {
+                if (filesToProcess.length === 0) {
+                    if (files.length > 0) { // Only show reload if some files were attempted
+                        // Check if any upload caused a page reload already via handleDuplicateFile or direct success
+                        // This is a bit tricky; for now, we assume if no errors/duplicates stopped it, a reload might be pending.
+                        // A more robust solution would use a flag.
+                        // showAlert("All file processing initiated.", "info");
+                        // setTimeout(() => location.reload(), 2000); // General reload if needed
+                    }
+                    return;
                 }
-                
-                if (failed > 0) {
-                    showAlert(`${failed} file(s) failed to upload`, 'error');
+
+                const file = filesToProcess.shift();
+                try {
+                    const result = await uploadFile(file); // Initial attempt without action
+
+                    if (result.success) {
+                        showAlert(`"${result.data.filename}" uploaded successfully!`, 'success');
+                        // Consider a single reload at the end, or manage state without full reload.
+                        // For now, individual success can trigger reload if desired, but handleDuplicateFile also does.
+                        // To avoid multiple reloads, let's make success here NOT reload, and have a final one.
+                        // However, the spec for handleDuplicateFile includes a reload.
+                        // Let's let handleDuplicateFile and direct success reload for now.
+                         setTimeout(() => location.reload(), 1500); // Reload on direct success
+                    } else if (result.duplicate) {
+                        handleDuplicateFile(result.file, result.filename);
+                        // handleDuplicateFile will manage its own alerts and potential re-upload/reload.
+                        // We might want to pause processing next file until this is resolved.
+                        // For simplicity now, it continues in background.
+                    }
+                    // Errors are thrown by uploadFile and caught below.
+                } catch (error) {
+                    showAlert(`Error uploading "${file.name}": ${error.message}`, 'error');
+                } finally {
+                    if (filesToProcess.length > 0) {
+                       // processNextFile(); // Process next file, uncomment if sequential processing is desired
+                    } else if (files.length > 0) {
+                        // This is the end of initial batch processing.
+                        // If no reloads were triggered by success/duplicate handling, consider one here.
+                        // For now, let's rely on reloads from individual successes or duplicate resolutions.
+                        console.log("All initial file upload attempts processed.");
+                    }
+                }
+            }
+
+            // Start processing the first file.
+            // For simplicity, let's process them in parallel as originally designed,
+            // and let individual handlers manage UI.
+            files.forEach(async file => {
+                try {
+                    const result = await uploadFile(file); // Initial attempt
+                    if (result.success) {
+                        showAlert(`"${result.data.filename}" uploaded successfully!`, 'success');
+                        setTimeout(() => location.reload(), 1500);
+                    } else if (result.duplicate) {
+                        handleDuplicateFile(result.file, result.filename);
+                    }
+                } catch (error) {
+                     showAlert(`Error uploading "${file.name}": ${error.message}`, 'error');
                 }
             });
 
-            fileInput.value = '';
+            fileInput.value = ''; // Clear file input after initiating uploads
         }
 
-        async function uploadFile(file) {
+        async function uploadFile(file, action = null) {
             const formData = new FormData();
             formData.append('file', file);
+            if (action) {
+                formData.append('action', action);
+            }
 
             const response = await fetch('/upload', {
                 method: 'POST',
                 body: formData
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json(); // Try to parse JSON regardless of response.ok
+
+            if (!response.ok) { // Covers 4xx, 5xx errors
+                throw new Error(data.message || `HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json();
-            
-            if (!data.success) {
-                throw new Error(data.error || 'Upload failed');
+            // Response is OK (2xx)
+            if (data.status === 'success') {
+                return { success: true, data: data }; // Resolve promise for Promise.allSettled
+            } else if (data.status === 'duplicate') {
+                // This will be caught by the caller, which should then call handleDuplicateFile
+                return { duplicate: true, file: file, filename: data.filename, message: data.message };
+            } else {
+                // Other non-success status from server (e.g. validation error not caught by !response.ok)
+                throw new Error(data.message || 'Upload failed due to an unknown server issue.');
             }
-
-            return data;
         }
+
+        function handleDuplicateFile(originalFile, serverFilename) {
+            // Simple confirm dialogs. A modal would be a better UX.
+            const confirmedReplace = confirm(`A file named "${serverFilename}" already exists.\nDo you want to replace it?`);
+            if (confirmedReplace) {
+                uploadFileWithAction(originalFile, 'replace');
+            } else {
+                const confirmedKeepBoth = confirm(`Do you want to save the new file as a copy (e.g., "${serverFilename} (1)")?`);
+                if (confirmedKeepBoth) {
+                    uploadFileWithAction(originalFile, 'keep_both');
+                } else {
+                    showAlert(`Upload of "${serverFilename}" was cancelled.`, 'info');
+                }
+            }
+        }
+
+        // Helper to re-initiate upload with action and handle its specific outcome
+        async function uploadFileWithAction(file, action) {
+            try {
+                showAlert(`Attempting to ${action.replace('_', ' ')} "${file.name}"...`, 'info');
+                const result = await uploadFile(file, action); // Re-upload with action
+                if (result.success) {
+                    showAlert(`"${result.data.filename}" processed successfully!`, 'success');
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    // This path should ideally not be hit if server logic is correct for replace/keep_both
+                     showAlert(`Failed to ${action.replace('_',' ')} "${file.name}": ${result.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showAlert(`Error during ${action.replace('_',' ')} "${file.name}": ${error.message}`, 'error');
+            }
+        }
+
 
         // File action functions
         function downloadFile(fileId) {
