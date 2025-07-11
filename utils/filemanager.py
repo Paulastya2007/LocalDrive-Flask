@@ -229,23 +229,52 @@ class FileManager:
             print(f"Error getting user files: {e}")
             return [], 0
     
-    def get_file_info(self, file_id, user_email):
-        """Get file information for a specific file and user"""
+    def get_file_info(self, file_id, requesting_user_email=None):
+        """
+        Get file information for a specific file.
+        If the file is global, any logged-in user can access its info.
+        If the file is not global, only the owner (matched by requesting_user_email) can access it.
+        Returns file_info tuple or None if not found or access denied.
+        """
         try:
             conn = sqlite3.connect(self.db_path)
             cursor = conn.cursor()
+            # Fetch all necessary fields including owner's email (user_email) and is_global status
             cursor.execute('''
-                SELECT id, user_email, filename, file_path, upload_date, file_size
+                SELECT id, user_email, filename, file_path, upload_date, file_size, is_global
                 FROM files 
-                WHERE id = ? AND user_email = ?
-            ''', (file_id, user_email))
+                WHERE id = ?
+            ''', (file_id,))
             
-            file_info = cursor.fetchone()
+            file_data = cursor.fetchone()
             conn.close()
-            return file_info
+
+            if not file_data:
+                return None # File not found
+
+            # file_data structure: (id, owner_email, filename, file_path, upload_date, file_size, is_global_db_val)
+            is_global_status = bool(file_data[6]) # is_global is at index 6
+            owner_email = file_data[1]
+
+            if is_global_status:
+                # If file is global, any authenticated user (requesting_user_email is not None) can access.
+                # Or, if we allow unauthenticated access to global files info (e.g. for a public link later),
+                # this check might be removed or modified. For now, let's assume only logged-in users.
+                if requesting_user_email:
+                    return file_data
+                else: # No requesting user, but file is global. Decide policy. For now, deny if no user.
+                    return None # Or handle as per specific requirement for unauthenticated global access.
+            else:
+                # File is not global, so check ownership
+                if requesting_user_email and requesting_user_email == owner_email:
+                    return file_data
+                else:
+                    return None # Access denied (not owner of private file)
             
         except Exception as e:
-            print(f"Error getting file info: {e}")
+            print(f"Error getting file info for file_id {file_id}: {e}")
+            if conn:
+                conn.close()
             return None
     
     def delete_file(self, file_id, user_email):

@@ -74,12 +74,12 @@
                 <div>TYPE</div>
                 <div>SIZE</div>
                 <div>DATE</div>
+                <div>ACTIONS</div>
                 {% if active_tab == 'global_files' %}
                     <div>UPLOADED BY</div>
                 {% else %} {# My Drive Tab #}
                     <div>MAKE GLOBAL</div>
                 {% endif %}
-                <div>ACTIONS</div>
             </div>
             
             <div id="filesList">
@@ -94,29 +94,11 @@
                         <div class="file-size">{{ pdf.file_size }}</div>
                         <div class="file-date">{{ pdf.upload_date.split()[0] }}</div>
 
-                        {% if active_tab == 'global_files' %}
-                            <div class="file-owner">{{ pdf.user_email }}</div>
-                        {% else %} {# My Drive Tab - only show checkbox for user's own files #}
-                            <div class="file-make-global">
-                                {# Assuming pdf.user_email is implicitly the current session user for 'my_files' tab data from get_user_files #}
-                                {# The data from get_user_files now includes is_global status #}
-                                <input type="checkbox" class="make-global-checkbox" data-file-id="{{ pdf.id }}"
-                                       {% if pdf.is_global %}checked{% endif %}
-                                       title="Mark as Global / Private">
-                            </div>
-                        {% endif %}
-
                         <div class="file-actions">
                             <button class="action-btn" title="Download" onclick="downloadFile('{{ pdf.id }}')">
                                 ⬇️
                             </button>
-                            {# Share button might be less relevant for global files unless context is clear #}
-                            {# <button class="action-btn" title="Share" onclick="shareFile('{{ pdf.id }}')">
-                                🔗
-                            </button> #}
                             {% if active_tab == 'my_files' or pdf.user_email == session.user %}
-                            {# Only show delete for own files, even in global (though global delete might be complex) #}
-                            {# For simplicity, delete is only shown for "my_files" tab here, implying ownership #}
                             <button class="action-btn danger" title="Delete" onclick="deleteFile('{{ pdf.id }}', '{{ pdf.filename }}')">
                                 🗑️
                             </button>
@@ -125,6 +107,16 @@
                                 👁️
                             </button>
                         </div>
+
+                        {% if active_tab == 'global_files' %}
+                            <div class="file-owner">{{ pdf.user_email }}</div>
+                        {% else %} {# My Drive Tab - only show checkbox for user's own files #}
+                            <div class="file-make-global">
+                                <input type="checkbox" class="make-global-checkbox" data-file-id="{{ pdf.id }}"
+                                       {% if pdf.is_global %}checked{% endif %}
+                                       title="Mark as Global / Private">
+                            </div>
+                        {% endif %}
                     </div>
                     {% endfor %}
                 {% else %}

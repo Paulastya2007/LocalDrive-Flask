@@ -292,30 +292,38 @@ def admin_panel():
 
 @app.route('/set_global_status/<int:file_id>', methods=['POST'])
 def set_global_status(file_id):
+    # Ensure this check happens first and explicitly returns JSON
     if 'user' not in session:
-        return jsonify({'status': 'error', 'message': 'Authentication required.'}), 401
+        return jsonify({'status': 'error', 'message': 'Authentication required. Please log in again.'}), 401
 
     try:
         data = request.get_json()
-        if data is None or 'is_global' not in data or not isinstance(data['is_global'], bool):
+        if data is None: # More robust check for empty/non-json payload
+            app.logger.warning(f"set_global_status: Received empty or non-JSON payload for file_id {file_id}")
+            return jsonify({'status': 'error', 'message': 'Invalid request. Expected JSON payload.'}), 400
+
+        if 'is_global' not in data or not isinstance(data['is_global'], bool):
+            app.logger.warning(f"set_global_status: Missing or malformed 'is_global' for file_id {file_id}. Data: {data}")
             return jsonify({'status': 'error', 'message': 'Invalid request. Missing or malformed "is_global" boolean field in JSON body.'}), 400
 
         is_global_flag = data['is_global']
-    except Exception: # Catch errors from get_json if content type is wrong etc.
-        return jsonify({'status': 'error', 'message': 'Invalid request format. Expected JSON.'}), 400
 
-    success, message = file_manager.set_file_global_status(file_id, session['user'], is_global_flag)
+        success, message = file_manager.set_file_global_status(file_id, session['user'], is_global_flag)
 
-    if success:
-        return jsonify({'status': 'success', 'message': message}), 200
-    else:
-        # Determine appropriate status code based on message
-        if "Access denied" in message:
-            return jsonify({'status': 'error', 'message': message}), 403 # Forbidden
-        elif "File not found" in message:
-            return jsonify({'status': 'error', 'message': message}), 404 # Not Found
+        if success:
+            return jsonify({'status': 'success', 'message': message}), 200
         else:
-            return jsonify({'status': 'error', 'message': message}), 500 # Internal Server Error / General Error
+            if "Access denied" in message:
+                return jsonify({'status': 'error', 'message': message}), 403
+            elif "File not found" in message:
+                return jsonify({'status': 'error', 'message': message}), 404
+            else: # Includes other FileManager errors
+                app.logger.error(f"set_file_global_status failed for file_id {file_id}, user {session['user']}: {message}")
+                return jsonify({'status': 'error', 'message': message}), 500
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in /set_global_status for file_id {file_id}: {str(e)}", exc_info=True)
+        return jsonify({'status': 'error', 'message': 'An unexpected server error occurred.'}), 500
 
 @app.route('/admin/reset-password/<path:user_email_for_reset>', methods=['POST'])
 def admin_reset_password(user_email_for_reset):
