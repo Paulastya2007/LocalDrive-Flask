@@ -1,7 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file, jsonify
-from utils.auth import create_user, authenticate_user, validate_email, validate_password
+from dotenv import load_dotenv
+from utils.auth import (
+    create_user, authenticate_user, validate_email,
+    validate_password, hash_password, verify_password,
+    get_all_users, admin_set_user_password
+)
 from utils.filemanager import FileManager
 import os
+
+load_dotenv() # Load environment variables from .env file
 import shutil # Added for shutil.rmtree
 from werkzeug.utils import secure_filename
 
@@ -230,6 +237,71 @@ def logout():
     if user:
         flash("You have been logged out successfully", "info")
     return redirect(url_for('login'))
+
+# Admin Routes
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    if 'admin_logged_in' in session:
+        return redirect(url_for('admin_panel')) # Redirect to admin panel if already logged in
+
+    if request.method == 'POST':
+        password = request.form.get('password')
+        admin_password_hash = os.getenv('ADMIN_PASSWORD_HASH')
+
+        if not admin_password_hash:
+            flash('Admin functionality is not configured.', 'error')
+            return render_template('admin_login.html'), 500 # Internal server error
+
+        # Directly compare submitted password's hash with the stored hash
+        # Assuming verify_password(submitted_plain_password, stored_hash)
+        if password and verify_password(password, admin_password_hash):
+            session['admin_logged_in'] = True
+            session.permanent = True # Make admin session more persistent if desired
+            flash('Admin login successful!', 'success')
+            return redirect(url_for('admin_panel')) # Placeholder for admin panel route
+        else:
+            flash('Invalid admin password.', 'error')
+            return render_template('admin_login.html'), 401 # Unauthorized
+
+    return render_template('admin_login.html')
+
+# Placeholder for admin_panel route - to be created in next step
+@app.route('/admin/panel')
+def admin_panel():
+    if 'admin_logged_in' not in session:
+        flash('Please log in as admin to access this page.', 'warning')
+        return redirect(url_for('admin_login'))
+
+    users = get_all_users() # Fetch all users (email, created_at)
+    return render_template('admin_panel.html', users=users)
+
+@app.route('/admin/reset-password/<path:user_email_for_reset>', methods=['POST'])
+def admin_reset_password(user_email_for_reset):
+    if 'admin_logged_in' not in session:
+        flash('Admin access required.', 'error')
+        return redirect(url_for('admin_login'))
+
+    new_password = request.form.get('new_password')
+
+    is_valid_password, password_message = validate_password(new_password)
+    if not is_valid_password:
+        flash(f'Error for user {user_email_for_reset}: {password_message}', 'error')
+        return redirect(url_for('admin_panel'))
+
+    success, message = admin_set_user_password(user_email_for_reset, new_password)
+    if success:
+        flash(f'Password for {user_email_for_reset} has been updated successfully.', 'success')
+    else:
+        flash(f'Failed to update password for {user_email_for_reset}: {message}', 'error')
+
+    return redirect(url_for('admin_panel'))
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    flash('You have been logged out from the admin panel.', 'info')
+    return redirect(url_for('admin_login'))
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')

@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        /* Additional styles specific to admin login if needed, or can be in style.css */
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f0f2f5; /* A slightly more neutral admin background */
+        }
+        .admin-login-card {
+            width: 100%;
+            max-width: 400px;
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .admin-login-header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+        .admin-login-header h2 {
+            font-size: 24px;
+            color: #333;
+            font-weight: 600;
+        }
+        .admin-login-header p {
+            font-size: 14px;
+            color: #666;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+        }
+        .form-control { /* Assuming .form-control from style.css is suitable */
+            padding-left: 15px; /* No icon, so less padding is okay */
+        }
+        .btn-admin { /* Specific button styling if different from main .btn */
+            background: #343a40; /* Darker admin button */
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+        .btn-admin:hover {
+            background: #23272b;
+        }
+        .error-message { /* Assuming .error-message from style.css is suitable */
+            margin-top: 15px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="admin-login-card">
+        <div class="admin-login-header">
+            <h2>System Administration Login</h2>
+            <p>Enter the administrator password to continue.</p>
+        </div>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    {% if category == 'error' %}
+                        <div class="error-message">{{ message }}</div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('admin_login') }}">
+            <div class="form-group">
+                <label for="password" class="form-label">Password:</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn-admin">Login</button>
+        </form>
+    </div>
+</body>
+</html>

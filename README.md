@@ -86,6 +86,40 @@ For production, use [NSSM](https://nssm.cc/) or Windows Task Scheduler to run Wa
 nssm install flask-app "C:\apps\some_flask\venv\Scripts\python.exe" "-m" "waitress" "--listen=127.0.0.1:8000" "app:app"
 ```
 
+## Admin Panel Setup (Optional)
+
+This application includes an optional admin panel for managing user passwords. To enable and use it:
+
+1.  **Generate Admin Password Hash:**
+    The admin login uses a password stored as a SHA256 hash in an environment variable.
+    To generate this hash and set it up:
+    *   Ensure Python is installed.
+    *   Run the `generate_admin_hash.py` script located in the root of the project:
+        ```powershell
+        # Navigate to your project directory in PowerShell or CMD
+        cd C:\apps\some_flask
+        # If in a virtual environment, activate it: .\venv\Scripts\Activate.ps1
+        python generate_admin_hash.py
+        ```
+    *   The script will prompt you to enter and confirm your desired admin password.
+    *   It will then print the generated SHA256 hash.
+    *   It will also ask if you want to update/create a `.env` file in the project root with this hash. If you choose 'yes', it will add/update the line:
+        `ADMIN_PASSWORD_HASH=your_generated_hash_here`
+
+2.  **Ensure `.env` File is Loaded:**
+    Your Flask application needs to be configured to load environment variables from this `.env` file at startup. If it's not already, you can add the `python-dotenv` package:
+    *   Install it: `pip install python-dotenv` (add to `requirements.txt` as well).
+    *   At the very beginning of your `app.py`, add:
+        ```python
+        from dotenv import load_dotenv
+        load_dotenv()
+        ```
+    This ensures that `os.getenv('ADMIN_PASSWORD_HASH')` will correctly pick up the value.
+
+3.  **Accessing the Admin Panel:**
+    *   Once the application is running and the `ADMIN_PASSWORD_HASH` is set, you can access the admin login page at `/admin/login`.
+    *   Enter the password you chose during the hash generation step.
+
 ## 12. Security & Final Steps
 - Change `app.secret_key` in `app.py` to a strong, random value.
 - Set proper permissions on `uploads/` and database files.

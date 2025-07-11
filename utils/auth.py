@@ -182,5 +182,27 @@ def validate_password(password):
         return False, "Password is too long"
     return True, "Password is valid"
 
+def admin_set_user_password(email, new_password):
+    """Set a user's password by an admin. No old password verification needed."""
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            new_hash = hash_password(new_password)
+            cursor.execute(
+                "UPDATE users SET password_hash = ? WHERE email = ?",
+                (new_hash, email)
+            )
+
+            if cursor.rowcount > 0:
+                conn.commit()
+                return True, "Password updated successfully by admin."
+            else:
+                # This case implies the user email does not exist, which shouldn't happen
+                # if the admin panel is listing existing users.
+                return False, "User not found. Password not updated."
+
+    except sqlite3.Error as e:
+        return False, f"Database error during admin password update: {str(e)}"
+
 # Initialize database when module is imported
 init_database()

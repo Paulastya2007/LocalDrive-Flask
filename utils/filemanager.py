@@ -40,22 +40,40 @@ class FileManager:
         conn.close()
         return file_data
 
+    def _get_user_specific_upload_dir(self, user_email):
+        """ Returns the specific upload directory path for a user. """
+        # Sanitize user_email to make it a valid directory name if necessary,
+        # though emails are generally safe. For extreme cases, consider hashing or encoding.
+        # For now, direct use, assuming typical email characters are fine for most OS.
+        # Replace problematic characters if any, e.g. user_email.replace('@', '_at_')
+        sanitized_user_email_for_path = user_email.replace('@', '_at_').replace('.', '_dot_') # Basic sanitization
+        user_dir = os.path.join(self.upload_folder, sanitized_user_email_for_path)
+        return user_dir
+
     def _generate_new_filepath(self, user_email, filename):
         """
-        Generates a new unique filename and its full path if the original filename exists.
-        Checks both DB and filesystem for uniqueness.
-        Returns (new_filename, new_full_path)
+        Generates a new unique filename and its full path within the user's specific directory
+        if the original filename exists.
+        Checks both DB (for user+filename combo) and filesystem (full path) for uniqueness.
+        Returns (new_filename, new_full_path_for_user_file)
         """
+        user_specific_dir = self._get_user_specific_upload_dir(user_email)
+        # No need to call os.makedirs here, as add_file will do it before moving.
+        # This function is about finding a unique name and path.
+
         base, ext = os.path.splitext(filename)
         counter = 1
-        new_filename = filename
-        new_full_path = os.path.join(self.upload_folder, new_filename)
+        new_filename = filename # This is just the filename, not the full path yet
 
-        while self._get_file_by_name(user_email, new_filename) or os.path.exists(new_full_path):
+        # Check against DB for user + new_filename combo
+        # And check filesystem for the full path: user_specific_dir + new_filename
+        new_full_path_for_user_file = os.path.join(user_specific_dir, new_filename)
+
+        while self._get_file_by_name(user_email, new_filename) or os.path.exists(new_full_path_for_user_file):
             new_filename = f"{base} ({counter}){ext}"
-            new_full_path = os.path.join(self.upload_folder, new_filename)
+            new_full_path_for_user_file = os.path.join(user_specific_dir, new_filename)
             counter += 1
-        return new_filename, new_full_path
+        return new_filename, new_full_path_for_user_file # Return new name and its full path
 
     def add_file(self, user_email, original_filename, temp_uploaded_path, action="default"):
         """
@@ -74,21 +92,13 @@ class FileManager:
 
         try:
             existing_file_record = self._get_file_by_name(user_email, original_filename)
-            final_filename = original_filename # Default final name
+            final_filename = original_filename
             
-            # Determine the final physical path based on action
-            if action == "keep_both" and existing_file_record:
-                # If keeping both and original exists, generate new name and path
-                final_filename, final_physical_path = self._generate_new_filepath(user_email, original_filename)
-            else:
-                # For "default" (no conflict yet), "replace", or "default" (conflict but action is not keep_both)
-                final_physical_path = os.path.join(self.upload_folder, final_filename)
-
+            user_specific_upload_dir = self._get_user_specific_upload_dir(user_email)
 
             if existing_file_record:
                 if action == "default":
                     conn.close()
-                    # temp_uploaded_path should be cleaned by caller if user cancels upload process
                     return {"status": "duplicate", "filename": original_filename, "message": "File already exists."}
 
                 elif action == "replace":
@@ -99,33 +109,35 @@ class FileManager:
                             os.remove(old_physical_path)
                         except OSError as e:
                             print(f"Warning: Error deleting old physical file {old_physical_path}: {e}")
-                    # final_filename and final_physical_path are already correct for replacing with original_filename
+                    # The new file will replace the old one using the original_filename in the user's specific directory
+                    final_physical_path = os.path.join(user_specific_upload_dir, final_filename)
 
                 elif action == "keep_both":
-                    # final_filename and final_physical_path were already determined above
-                    pass # Proceed to move and add
+                    # Generate new unique name and its full path within the user's directory
+                    final_filename, final_physical_path = self._generate_new_filepath(user_email, original_filename)
+                    # _generate_new_filepath already gives the full path including user_specific_upload_dir
 
                 else:
                     conn.close()
                     return {"status": "error", "message": "Invalid action for duplicate file."}
+            else: # No existing record, this is a new file (for this user)
+                final_physical_path = os.path.join(user_specific_upload_dir, final_filename)
+
+            # Ensure the user-specific directory exists before moving the file
+            os.makedirs(user_specific_upload_dir, exist_ok=True)
             
-            # If temp_uploaded_path is None or empty, it means the file wasn't provided (e.g. programmatic error)
             if not temp_uploaded_path or not os.path.exists(temp_uploaded_path):
                  conn.close()
                  return {"status": "error", "message": "Temporary file not found or not provided."}
 
-
-            # Move the uploaded file from temp_uploaded_path to final_physical_path
             try:
-                # Ensure destination directory exists (should be covered by __init__, but good practice)
-                os.makedirs(os.path.dirname(final_physical_path), exist_ok=True)
                 shutil.move(temp_uploaded_path, final_physical_path)
-                moved_successfully = True # Mark that the file has been moved
+                moved_successfully = True
             except Exception as e:
                 conn.close()
-                return {"status": "error", "message": f"Failed to move file to destination: {str(e)}"}
+                return {"status": "error", "message": f"Failed to move file to destination '{final_physical_path}': {str(e)}"}
 
-            # Add to database
+            # Add to database with the potentially new final_filename and its full user-specific path
             file_size = os.path.getsize(final_physical_path)
             upload_date = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             
