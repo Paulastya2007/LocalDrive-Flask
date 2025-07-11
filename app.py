@@ -36,28 +36,13 @@ def home():
 
         user_pdfs, total_files = file_manager.get_user_files(session['user'], page=page, per_page=per_page)
 
-        # Calculate total pages for frontend, though not strictly needed for infinite scroll
-        # total_pages = (total_files + per_page - 1) // per_page
+        # Calculate total pages for frontend for pagination controls
+        total_pages = (total_files + per_page - 1) // per_page
 
-        return render_template('home.html', user=session['user'], pdfs=user_pdfs, current_page=page, total_files=total_files, per_page=per_page)
+        return render_template('home.html', user=session['user'], pdfs=user_pdfs, current_page=page, total_files=total_files, per_page=per_page, total_pages=total_pages)
     return redirect(url_for('login'))
 
-@app.route('/load_files')
-def load_files():
-    if 'user' not in session:
-        return jsonify({'error': 'Not authenticated'}), 401
-
-    page = request.args.get('page', 1, type=int)
-    per_page = 5 # Files per page for infinite scroll
-
-    files, total_files = file_manager.get_user_files(session['user'], page=page, per_page=per_page)
-
-    return jsonify({
-        'files': files,
-        'has_more': (page * per_page) < total_files,
-        'next_page': page + 1 if (page * per_page) < total_files else None,
-        'total_files': total_files
-    })
+# Removed /load_files route as it's no longer needed for button pagination
 
 @app.route('/upload', methods=['POST'])
 def upload_file():

@@ -83,9 +83,57 @@
                     </div>
                 {% endif %}
             </div>
-            <div id="loadingIndicator" style="display: none; text-align: center; padding: 20px;">
-                Loading more files...
+
+            {# Start Pagination Controls #}
+            {% if total_pages > 1 %}
+            <div class="pagination-controls" style="text-align: center; margin-top: 20px; padding-bottom: 20px;">
+                {# Previous Button #}
+                {% if current_page > 1 %}
+                    <a href="{{ url_for('home', page=current_page - 1) }}" class="pagination-arrow" title="Previous Page">&laquo; Prev</a>
+                {% else %}
+                    <span class="pagination-arrow disabled" title="Previous Page">&laquo; Prev</span>
+                {% endif %}
+
+                {# Page Numbers #}
+                {% set page_window = 2 %} {# Number of pages to show around current page #}
+                {% set start_page = current_page - page_window %}
+                {% if start_page < 1 %}{% set start_page = 1 %}{% endif %}
+                {% set end_page = current_page + page_window %}
+                {% if end_page > total_pages %}{% set end_page = total_pages %}{% endif %}
+
+                {% if start_page > 1 %}
+                    <a href="{{ url_for('home', page=1) }}" class="pagination-number">1</a>
+                    {% if start_page > 2 %}
+                        <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                {% endif %}
+
+                {% for page_num in range(start_page, end_page + 1) %}
+                    {% if page_num == current_page %}
+                        <span class="pagination-number active">{{ page_num }}</span>
+                    {% else %}
+                        <a href="{{ url_for('home', page=page_num) }}" class="pagination-number">{{ page_num }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if end_page < total_pages %}
+                    {% if end_page < total_pages - 1 %}
+                        <span class="pagination-ellipsis">...</span>
+                    {% endif %}
+                    <a href="{{ url_for('home', page=total_pages) }}" class="pagination-number">{{ total_pages }}</a>
+                {% endif %}
+
+                {# Next Button #}
+                {% if current_page < total_pages %}
+                    <a href="{{ url_for('home', page=current_page + 1) }}" class="pagination-arrow" title="Next Page">Next &raquo;</a>
+                {% else %}
+                    <span class="pagination-arrow disabled" title="Next Page">Next &raquo;</span>
+                {% endif %}
             </div>
+            {% endif %}
+            {# End Pagination Controls #}
+
+            {# Removed: <div id="loadingIndicator" ...> #}
         </div>
     </div>
 
@@ -100,12 +148,11 @@
         let searchTimeout;
         // let allFiles = []; // Store all files for client-side search fallback - Will be managed differently with pagination
 
-        // Pagination variables
-        let currentPage = {{ current_page }};
+        // Pagination variables (some will be passed from Flask for rendering buttons)
+        const currentPage = {{ current_page }};
         const perPage = {{ per_page }};
-        let totalFiles = {{ total_files }};
-        let isLoading = false;
-        let hasMoreFiles = (currentPage * perPage) < totalFiles;
+        const totalFiles = {{ total_files }};
+        // total_pages will be passed from Flask context
 
         // Initialize the application
         document.addEventListener('DOMContentLoaded', function() {
@@ -113,110 +160,27 @@
         });
 
         function initializeApp() {
-            // Initial file data is now rendered by Flask for the first page
-            // storeFileData(); // Not needed in the same way for paginated data
-            
             // Setup event listeners
             setupDragAndDrop();
             setupFileInput();
             setupSearch();
-            setupInfiniteScroll();
+            // setupInfiniteScroll(); // Removed
             updateEmptyState(); // Check if initially empty
             
             console.log('Drive Clone initialized successfully');
         }
 
-        // Store file data from DOM for search functionality - adjust for pagination
-        // This might be less relevant if server-side search is primary
-        // function storeFileData() { ... }
-
-        function setupInfiniteScroll() {
-            window.addEventListener('scroll', () => {
-                if (isLoading || !hasMoreFiles) return;
-
-                // Check if user is near the bottom
-                if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
-                    loadMoreFiles();
-                }
-            });
-        }
-
-        async function loadMoreFiles() {
-            if (isLoading || !hasMoreFiles) return;
-            isLoading = true;
-            document.getElementById('loadingIndicator').style.display = 'block';
-
-            try {
-                const nextPageToFetch = currentPage + 1;
-                const response = await fetch(`/load_files?page=${nextPageToFetch}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-
-                if (data.files && data.files.length > 0) {
-                    appendFiles(data.files);
-                    currentPage = nextPageToFetch;
-                    hasMoreFiles = data.has_more;
-                    totalFiles = data.total_files; // Update total files count
-                } else {
-                    hasMoreFiles = false; // No more files
-                }
-            } catch (error) {
-                console.error('Error loading more files:', error);
-                showAlert('Could not load more files.', 'error');
-                // Optionally, set hasMoreFiles to false or implement retry logic
-            } finally {
-                isLoading = false;
-                document.getElementById('loadingIndicator').style.display = 'none';
-                updateEmptyState(); // In case all files were deleted then new ones loaded
-            }
-        }
-
-        function appendFiles(newFiles) {
-            const filesListContainer = document.getElementById('filesList');
-            // Remove empty state if it exists
-            const emptyState = filesListContainer.querySelector('.empty-state');
-            if (emptyState) {
-                emptyState.remove();
-            }
-
-            newFiles.forEach(pdf => {
-                const fileRow = `
-                    <div class="file-row" data-filename="${escapeHtml(pdf.filename)}">
-                        <div class="file-name">
-                            <div class="file-icon">📄</div>
-                            <span>${escapeHtml(pdf.filename)}</span>
-                        </div>
-                        <div class="file-type">application/pdf</div>
-                        <div class="file-size">${escapeHtml(pdf.file_size || 'Unknown')}</div>
-                        <div class="file-date">${escapeHtml(pdf.upload_date ? pdf.upload_date.split(' ')[0] : 'Unknown')}</div>
-                        <div class="file-actions">
-                            <button class="action-btn" title="Download" onclick="downloadFile(${pdf.id})">
-                                ⬇️
-                            </button>
-                            <button class="action-btn" title="Share" onclick="shareFile(${pdf.id})">
-                                🔗
-                            </button>
-                            <button class="action-btn danger" title="Delete" onclick="deleteFile(${pdf.id}, '${escapeHtml(pdf.filename)}')">
-                                🗑️
-                            </button>
-                            <button class="action-btn" title="Preview" onclick="previewFile(${pdf.id})">
-                                👁️
-                            </button>
-                        </div>
-                    </div>
-                `;
-                filesListContainer.insertAdjacentHTML('beforeend', fileRow);
-            });
-        }
+        // function setupInfiniteScroll() { ... } // Removed
+        // async function loadMoreFiles() { ... } // Removed
+        // function appendFiles(newFiles) { ... } // Removed - Page reload will handle list updates
 
         function updateEmptyState() {
             const filesListContainer = document.getElementById('filesList');
             const fileRows = filesListContainer.querySelectorAll('.file-row');
             const emptyState = filesListContainer.querySelector('.empty-state');
 
-            if (fileRows.length === 0 && !isLoading) {
+            // isLoading variable removed, check only fileRows.length
+            if (fileRows.length === 0) {
                 if (!emptyState) {
                     filesListContainer.innerHTML = `
                         <div class="empty-state">
@@ -331,10 +295,7 @@
         }
 
         async function serverSearch(query) {
-            // Disable infinite scroll during search
-            hasMoreFiles = false;
-            document.getElementById('loadingIndicator').style.display = 'none';
-
+            // References to hasMoreFiles and loadingIndicator removed as they are no longer part of button pagination
             try {
                 const response = await fetch(`/search?q=${encodeURIComponent(query)}`);
                 if (!response.ok) throw new Error('Search failed');
@@ -353,16 +314,12 @@
             filesList.innerHTML = ''; // Clear previous results or initial files
             if (!results || results.length === 0) {
                 showNoSearchResults(query);
-                // When search yields no results, we should not attempt to load more via scrolling.
-                hasMoreFiles = false;
-                document.getElementById('loadingIndicator').style.display = 'none';
+                // References to hasMoreFiles and loadingIndicator removed
                 return;
             }
 
-            // Since search results are not paginated by the current server search,
-            // we display all of them and disable further "load more" for this search result view.
-            hasMoreFiles = false;
-            document.getElementById('loadingIndicator').style.display = 'none';
+            // References to hasMoreFiles and loadingIndicator removed
+            // Search results are not paginated on the frontend side with button pagination for the main list.
 
             filesList.innerHTML = results.map(pdf => `
                 <div class="file-row" data-filename="${escapeHtml(pdf.filename)}">
@@ -402,46 +359,11 @@
             `;
         }
 
-        async function clearSearch() {
+        function clearSearch() {
             searchInput.value = '';
-            filesList.innerHTML = ''; // Clear current content (search results or filtered list)
-            document.getElementById('loadingIndicator').style.display = 'block'; // Show loading indicator
-            
-            // Reset pagination and fetch first page
-            currentPage = 0; // Will become 1 in loadMoreFiles logic or set to 1 before direct call
-            hasMoreFiles = true; // Assume there are files until checked
-            isLoading = false; // Reset loading flag
-
-            try {
-                // Fetch and display the first page of files
-                const response = await fetch(`/load_files?page=1`);
-                if (!response.ok) throw new Error('Failed to reload files');
-                const data = await response.json();
-
-                if (data.files && data.files.length > 0) {
-                    appendFiles(data.files);
-                    currentPage = 1;
-                    hasMoreFiles = data.has_more;
-                    totalFiles = data.total_files;
-                } else {
-                    hasMoreFiles = false;
-                    totalFiles = 0;
-                }
-            } catch (error) {
-                console.error("Error clearing search and reloading files:", error);
-                showAlert('Error reloading files. Please refresh.', 'error');
-                filesList.innerHTML = '<div class="empty-state">Error loading files. Please refresh.</div>';
-            } finally {
-                document.getElementById('loadingIndicator').style.display = 'none';
-                updateEmptyState(); // Check if the list is empty after reloading
-                // Re-enable infinite scroll if it was disabled by search
-                 // Check if (currentPage * perPage) < totalFiles;
-                if ((currentPage * perPage) < totalFiles) {
-                    hasMoreFiles = true;
-                } else {
-                    hasMoreFiles = false;
-                }
-            }
+            // Reload the page to show the default file list (first page)
+            // This is the simplest way with button pagination handled by server-side rendering.
+            window.location.href = "{{ url_for('home') }}";
         }
 
         function highlightSearchTerm(element, term) {
