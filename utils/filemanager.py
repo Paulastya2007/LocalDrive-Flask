@@ -53,10 +53,8 @@ class FileManager:
         """ Returns the specific upload directory path for a user. """
         # Sanitize user_email to make it a valid directory name if necessary,
         # though emails are generally safe. For extreme cases, consider hashing or encoding.
-        # For now, direct use, assuming typical email characters are fine for most OS.
-        # Replace problematic characters if any, e.g. user_email.replace('@', '_at_')
-        sanitized_user_email_for_path = user_email.replace('@', '_at_').replace('.', '_dot_') # Basic sanitization
-        user_dir = os.path.join(self.upload_folder, sanitized_user_email_for_path)
+        # Using raw email for directory name as per user request.
+        user_dir = os.path.join(self.upload_folder, user_email)
         return user_dir
 
     def _generate_new_filepath(self, user_email, filename):

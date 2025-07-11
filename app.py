@@ -82,9 +82,17 @@ def upload_file():
         return jsonify({'error': 'Only PDF files are allowed'}), 400
     
     action = request.form.get('action', 'default') # Get action: 'default', 'replace', 'keep_both'
-    original_filename = secure_filename(file.filename)
+    # original_filename = secure_filename(file.filename) # Removed secure_filename call
+    original_filename = file.filename # Use raw filename
+
+    # Basic check for directory traversal attempts in the raw filename.
+    # This is NOT as robust as secure_filename but is a minimal check.
+    if ".." in original_filename or "/" in original_filename or "\\" in original_filename:
+        return jsonify({'error': 'Invalid characters in filename.'}), 400
 
     # Save to a temporary location first
+    # Note: temp_file_path will use the raw original_filename.
+    # OS might have issues if filename is too long or has certain forbidden chars not caught above.
     temp_dir = tempfile.mkdtemp(dir=TEMP_FOLDER)
     temp_file_path = os.path.join(temp_dir, original_filename)
 
