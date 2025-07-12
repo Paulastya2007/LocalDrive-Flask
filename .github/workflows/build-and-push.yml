@@ -1,4 +1,4 @@
-name: Docker Publish to GHCR
+name: Build and Push to GHCR
 
 # This action is triggered manually from the Actions tab
 on:
@@ -10,7 +10,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-    
+
     env:
       IMAGE_NAME: localdrive-flask # Define lowercase image name here
 
