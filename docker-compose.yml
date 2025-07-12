@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000" # Map host port 5000 to container port 5000 (Gunicorn's port)
+    volumes:
+      - ./uploads:/app/uploads # Map local uploads directory to /app/uploads in container
+      - ./data:/app/data       # Map local data directory (for DBs) to /app/data in container
+    env_file:
+      - .env                   # Load environment variables from .env file (for ADMIN_PASSWORD_HASH)
+    restart: unless-stopped    # Optional: Restart policy
+    # Optional: Add healthcheck if desired
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:5000/login"] # A simple check, adjust URL if needed
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 30s
+networks:
+  default:
+    driver: bridge

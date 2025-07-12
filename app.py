@@ -29,6 +29,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 # Initialize file manager
+# The db_path will now use the default '/app/data/database.db' from the FileManager class
+# UPLOAD_FOLDER is already an absolute path to /app/uploads inside the container
 file_manager = FileManager(upload_folder=UPLOAD_FOLDER)
 
 

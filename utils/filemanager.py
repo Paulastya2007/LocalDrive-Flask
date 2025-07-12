@@ -4,14 +4,23 @@ import shutil # For moving files
 from datetime import datetime
 
 class FileManager:
-    def __init__(self, db_path='database.db', upload_folder='uploads'):
+    def __init__(self, db_path='/app/data/database.db', upload_folder='uploads'): # Changed default db_path
         self.db_path = db_path
-        self.upload_folder = upload_folder
-        os.makedirs(self.upload_folder, exist_ok=True)
+        self.upload_folder = upload_folder # This will be /app/uploads when run in Docker via app.py
+
+        # Ensure the directory for the database file exists
+        db_dir = os.path.dirname(self.db_path)
+        os.makedirs(db_dir, exist_ok=True)
+
+        os.makedirs(self.upload_folder, exist_ok=True) # upload_folder is base, user dirs created inside
         self.init_db()
     
     def init_db(self):
         """Initialize the files table"""
+        # Ensure the data directory for the database exists again, just in case
+        db_dir = os.path.dirname(self.db_path)
+        os.makedirs(db_dir, exist_ok=True)
+
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         cursor.execute('''

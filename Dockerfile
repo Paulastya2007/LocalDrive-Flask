@@ -19,5 +19,9 @@ COPY . .
 # Expose the port the app will run on
 EXPOSE 5000
 
+# Declare volumes for persistent data
+VOLUME /app/uploads
+VOLUME /app/data
+
 # Command to run the Flask app with Gunicorn
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "app:app"]

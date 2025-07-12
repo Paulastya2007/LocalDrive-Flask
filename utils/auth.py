@@ -3,10 +3,13 @@ import sqlite3
 import os
 from contextlib import contextmanager
 
-DATABASE_FILE = 'users.db'
+DATA_DIR = '/app/data'
+DATABASE_FILE = os.path.join(DATA_DIR, 'users.db')
 
 def init_database():
     """Initialize the SQLite database with users table."""
+    # Ensure the data directory exists
+    os.makedirs(DATA_DIR, exist_ok=True)
     with sqlite3.connect(DATABASE_FILE) as conn:
         cursor = conn.cursor()
         cursor.execute('''

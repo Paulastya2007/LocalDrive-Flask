@@ -1,8 +1,67 @@
-# Flask PDF Manager - Production Deployment Guide (Windows + Nginx)
+# Flask PDF Manager
 
-This guide explains how to deploy your Flask PDF Manager app in production on a clean Windows installation using Nginx as a reverse proxy.
+## Deployment with Docker Compose (Recommended)
 
-## Prerequisites
+The easiest way to deploy this application is using Docker and Docker Compose. This method handles dependencies, persistent storage for uploads and databases, and environment variables.
+
+**Prerequisites:**
+- Docker installed ([Get Docker](https://docs.docker.com/get-docker/))
+- Docker Compose installed (usually comes with Docker Desktop)
+
+**Steps:**
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone <repository_url>
+    cd <repository_folder_name>
+    ```
+
+2.  **Set up Admin Password (Optional but Recommended):**
+    This application includes an admin panel. To secure it:
+    *   Run the `generate_admin_hash.py` script:
+        ```bash
+        python generate_admin_hash.py
+        ```
+    *   Follow the prompts to enter your desired admin password.
+    *   Choose 'yes' to create/update a `.env` file in the project root. This file will contain `ADMIN_PASSWORD_HASH=your_generated_hash_here`.
+    *   The `docker-compose.yml` file is already configured to use this `.env` file.
+
+3.  **Create Local Directories for Persistent Data:**
+    Before running Docker Compose for the first time, create local directories that will be mapped to the container's volumes. This ensures they are owned by your user and avoids potential permission issues.
+    ```bash
+    mkdir uploads
+    mkdir data
+    ```
+
+4.  **Build and Run with Docker Compose:**
+    In the project root (where `docker-compose.yml` is located), run:
+    ```bash
+    docker-compose up --build -d
+    ```
+    *   `--build`: Forces a rebuild of the Docker image if the `Dockerfile` or application code has changed.
+    *   `-d`: Runs the containers in detached mode (in the background).
+
+5.  **Accessing the Application:**
+    *   The application should now be accessible at [http://localhost:5000](http://localhost:5000).
+    *   The admin panel (if configured) will be at [http://localhost:5000/admin/login](http://localhost:5000/admin/login).
+
+6.  **Stopping the Application:**
+    ```bash
+    docker-compose down
+    ```
+    *   This stops and removes the containers. Your data in `./uploads` and `./data` will persist on your host machine.
+
+7.  **Updating the Application:**
+    *   Pull the latest code changes: `git pull`
+    *   Rebuild and restart: `docker-compose up --build -d`
+
+---
+
+## Manual Deployment Guide (Windows + Nginx)
+
+This guide explains how to deploy your Flask PDF Manager app manually on a clean Windows installation using Nginx as a reverse proxy. This is more complex than using Docker Compose.
+
+**Prerequisites (Manual Deployment):**
 - Windows 10/11 (clean install)
 - Administrator privileges
 - Internet connection
