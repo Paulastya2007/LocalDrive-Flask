@@ -43,7 +43,7 @@ def home():
         return redirect(url_for('login'))
 
     page = request.args.get('page', 1, type=int)
-    per_page = 5  # Files per page
+    per_page = 50  # Files per page
     active_tab = request.args.get('tab', 'my_files') # Default to 'my_files'
 
     files_list = []
