@@ -57,6 +57,29 @@ The easiest way to deploy this application is using Docker and Docker Compose. T
 
 ---
 
+### Alternative: Using the Pre-built Image from GHCR
+
+If you prefer not to build the Docker image locally, you can use the pre-built image from the GitHub Container Registry (GHCR). This is useful for deploying to a different machine without needing the source code.
+
+1.  **Pull the Image:**
+    Replace `YOUR_GITHUB_USERNAME` with the actual GitHub username or organization that owns the repository.
+    ```bash
+    docker pull ghcr.io/YOUR_GITHUB_USERNAME/localdrive-flask:latest
+    ```
+
+2.  **Run the Image:**
+    You still need to create the `uploads` and `data` directories and the `.env` file as described above. Then, you can run the container using `docker run`:
+    ```bash
+    # Ensure you are in the directory containing your 'uploads', 'data', and '.env' files
+    docker run -d --name localdrive-flask-container \
+      -p 5000:5000 \
+      -v "$(pwd)/uploads":/app/uploads \
+      -v "$(pwd)/data":/app/data \
+      --env-file ./.env \
+      ghcr.io/YOUR_GITHUB_USERNAME/localdrive-flask:latest
+    ```
+    *   The application will be available at [http://localhost:5000](http://localhost:5000).
+
 ## Manual Deployment Guide (Windows + Nginx)
 
 This guide explains how to deploy your Flask PDF Manager app manually on a clean Windows installation using Nginx as a reverse proxy. This is more complex than using Docker Compose.
